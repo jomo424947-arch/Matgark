@@ -24,7 +24,6 @@ export function ThemeToggle({ className }: { className?: string }) {
 
   return (
     <button
-      type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className={`relative inline-flex items-center justify-center w-10 h-10 rounded-xl border border-border/60 bg-background/80 hover:bg-muted text-foreground transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm ${className || ""}`}
       aria-label="تبديل الوضع (داكن / فاتح)"
@@ -36,3 +35,4 @@ export function ThemeToggle({ className }: { className?: string }) {
     </button>
   )
 }
+

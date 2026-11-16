@@ -3,9 +3,7 @@ import { persist } from "zustand/middleware"
 
 export interface CartItem {
   id: string
-  storeSlug: string
   productId: string
-  variantId?: string
   name: string
   price: number
   size: string
@@ -20,13 +18,12 @@ interface CartStore {
   addItem: (item: Omit<CartItem, "id">) => void
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
-  clearCart: (storeSlug?: string) => void
+  clearCart: () => void
   openCart: () => void
   closeCart: () => void
   toggleCart: () => void
-  getItemsByStore: (storeSlug: string) => CartItem[]
-  totalAmount: (storeSlug?: string) => number
-  totalItems: (storeSlug?: string) => number
+  totalAmount: () => number
+  totalItems: () => number
 }
 
 export const useCartStore = create<CartStore>()(
@@ -35,7 +32,7 @@ export const useCartStore = create<CartStore>()(
       items: [],
       isOpen: false,
       addItem: (item) => {
-        const id = `${item.storeSlug}-${item.productId}-${item.size}-${item.color}`
+        const id = `${item.productId}-${item.size}-${item.color}`
         const existing = get().items.find((i) => i.id === id)
 
         if (existing) {
@@ -58,42 +55,22 @@ export const useCartStore = create<CartStore>()(
           return
         }
         set({
-          items: get().items.map((i) =>
-            i.id === id ? { ...i, quantity } : i
-          ),
+          items: get().items.map((i) => (i.id === id ? { ...i, quantity } : i)),
         })
       },
-      clearCart: (storeSlug) => {
-        if (storeSlug) {
-          set({ items: get().items.filter((i) => i.storeSlug !== storeSlug) })
-        } else {
-          set({ items: [] })
-        }
-      },
+      clearCart: () => set({ items: [] }),
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
       toggleCart: () => set({ isOpen: !get().isOpen }),
-      getItemsByStore: (storeSlug) => {
-        return get().items.filter((i) => i.storeSlug === storeSlug)
-      },
-      totalAmount: (storeSlug) => {
-        const relevant = storeSlug
-          ? get().items.filter((i) => i.storeSlug === storeSlug)
-          : get().items
-        return relevant.reduce(
-          (sum, item) => sum + item.price * item.quantity,
-          0
-        )
-      },
-      totalItems: (storeSlug) => {
-        const relevant = storeSlug
-          ? get().items.filter((i) => i.storeSlug === storeSlug)
-          : get().items
-        return relevant.reduce((sum, item) => sum + item.quantity, 0)
-      },
+      totalAmount: () =>
+        get().items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+      totalItems: () =>
+        get().items.reduce((sum, item) => sum + item.quantity, 0),
     }),
     {
       name: "matgarak-cart-storage",
+      partialize: (state) => ({ items: state.items }),
+      skipHydration: true,
     }
   )
 )

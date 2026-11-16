@@ -18,10 +18,10 @@ export function Hero() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-
+          
           {/* الجانب الأيمن: العناوين و الـ CTA */}
           <div className="lg:col-span-7 text-right space-y-6">
-
+            
             {/* Badge مميز */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs sm:text-sm font-semibold">
               <Sparkles className="w-4 h-4 animate-pulse" />
@@ -96,13 +96,13 @@ export function Hero() {
 
           {/* الجانب الأيسر: Mockup المتجر التفاعلي */}
           <div className="lg:col-span-5 relative flex justify-center">
-
+            
             {/* كارت محاكاة شاشة الموبايل الفخمة */}
             <div className="relative w-full max-w-[340px] sm:max-w-[380px] rounded-[40px] p-3.5 bg-gradient-to-b from-foreground/10 to-foreground/5 border-4 border-foreground/10 shadow-2xl backdrop-blur-md">
-
+              
               {/* شاشة الهاتف الداخلية */}
               <div className="bg-card rounded-[32px] overflow-hidden border border-border/60 shadow-inner">
-
+                
                 {/* شريط الحالة والـ Header */}
                 <div className="bg-secondary/60 p-4 border-b border-border/40">
                   <div className="flex items-center justify-between">
@@ -123,7 +123,7 @@ export function Hero() {
 
                 {/* محتوى المتجر الافتراضي */}
                 <div className="p-4 space-y-3.5">
-
+                  
                   {/* كارت المنتج 1 */}
                   <div className="flex gap-3 p-2.5 rounded-2xl bg-muted/40 border border-border/40 hover:bg-muted/70 transition-colors">
                     <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-amber-500/20 to-primary/30 flex items-center justify-center text-3xl">

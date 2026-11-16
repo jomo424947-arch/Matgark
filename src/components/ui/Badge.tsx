@@ -5,8 +5,6 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: "default" | "secondary" | "outline" | "success" | "warning" | "danger" | "info"
 }
 
-export type BadgeVariant = NonNullable<BadgeProps["variant"]>
-
 export function Badge({
   className,
   variant = "default",

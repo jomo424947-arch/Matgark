@@ -12,19 +12,37 @@ const nextConfig: NextConfig = {
       },
     },
   },
-  async headers() {
+  async redirects() {
     return [
       {
-        source: "/:path*",
-        headers: [
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          {
-            key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
-          },
-        ],
+        source: "/dashboard/products",
+        destination: "/products",
+        permanent: false,
+      },
+      {
+        source: "/dashboard/products/new",
+        destination: "/products/new",
+        permanent: false,
+      },
+      {
+        source: "/dashboard/orders",
+        destination: "/orders",
+        permanent: false,
+      },
+      {
+        source: "/dashboard/customers",
+        destination: "/customers",
+        permanent: false,
+      },
+      {
+        source: "/dashboard/settings",
+        destination: "/settings",
+        permanent: false,
+      },
+      {
+        source: "/dashboard/onboarding",
+        destination: "/onboarding",
+        permanent: false,
       },
     ];
   },

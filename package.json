@@ -6,9 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "test": "tsx --test tests/matgarak.test.ts",
-    "check": "tsc --noEmit && eslint src && npm test"
+    "lint": "eslint"
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.3",
@@ -33,7 +31,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
     "tailwindcss": "^4",
-    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
