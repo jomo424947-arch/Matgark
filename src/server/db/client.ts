@@ -1,5 +1,3 @@
-import fs from "node:fs"
-import path from "node:path"
 import type {
   User,
   Store,
@@ -12,102 +10,14 @@ import type {
   ProductStatus,
   DashboardStats,
   ProductVariant,
+  OrderItem,
+  OrderStatusHistoryEntry,
 } from "@/types/domain"
-import {
-  INITIAL_USER,
-  INITIAL_STORE,
-  INITIAL_PRODUCTS,
-  INITIAL_CUSTOMERS,
-  INITIAL_ORDERS,
-} from "@/server/db/seed-data"
+import { supabaseAdmin } from "@/server/db/supabase"
 
-export interface DatabaseSchema {
-  users: User[]
-  stores: Store[]
-  products: Product[]
-  customers: Customer[]
-  orders: Order[]
-  sessions: Session[]
-  otpCodes: OtpCode[]
-  auditLogs: AuditLogEntry[]
-}
-
-function getDatabasePath(): string {
-  if (process.env.MATGARAK_DB_PATH) {
-    return process.env.MATGARAK_DB_PATH
-  }
-  return path.join(process.cwd(), ".data", "matgarak-db.json")
-}
-
-function getInitialData(): DatabaseSchema {
-  return {
-    users: [INITIAL_USER],
-    stores: [INITIAL_STORE],
-    products: INITIAL_PRODUCTS,
-    customers: INITIAL_CUSTOMERS,
-    orders: INITIAL_ORDERS,
-    sessions: [],
-    otpCodes: [],
-    auditLogs: [],
-  }
-}
-
-let txQueue: Promise<unknown> = Promise.resolve()
-
-function readDbRaw(filePath: string): DatabaseSchema {
-  if (!fs.existsSync(filePath)) {
-    const dir = path.dirname(filePath)
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
-    }
-    const initial = getInitialData()
-    writeDbRaw(filePath, initial)
-    return initial
-  }
-
-  try {
-    const content = fs.readFileSync(filePath, "utf-8")
-    return JSON.parse(content) as DatabaseSchema
-  } catch (err) {
-    console.error("Failed to parse matgarak-db.json, resetting to seed:", err)
-    const initial = getInitialData()
-    writeDbRaw(filePath, initial)
-    return initial
-  }
-}
-
-function writeDbRaw(filePath: string, data: DatabaseSchema): void {
-  const dir = path.dirname(filePath)
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
-  }
-  const tempPath = `${filePath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`
-  fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), "utf-8")
-  fs.renameSync(tempPath, filePath)
-}
-
-/**
- * Runs a transactional operation with an exclusive async mutex.
- */
-export async function withTransaction<T>(
-  fn: (db: DatabaseSchema) => Promise<T> | T
-): Promise<T> {
-  const filePath = getDatabasePath()
-
-  const operation = async (): Promise<T> => {
-    const db = readDbRaw(filePath)
-    const result = await fn(db)
-    writeDbRaw(filePath, db)
-    return result
-  }
-
-  const resultPromise = txQueue.then(operation, operation)
-  txQueue = resultPromise.then(
-    () => {},
-    () => {}
-  )
-  return resultPromise
-}
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
 
 export function computeProductStockAndStatus(variants: ProductVariant[]): {
   stock: number
@@ -123,193 +33,1035 @@ export function computeProductStockAndStatus(variants: ProductVariant[]): {
   return { stock: totalStock, status }
 }
 
+// ─────────────────────────────────────────────
+// Row → Domain mappers
+// ─────────────────────────────────────────────
+
+function rowToUser(r: Record<string, unknown>): User {
+  return {
+    id: r.id as string,
+    phone: r.phone as string,
+    createdAt: r.created_at as string,
+  }
+}
+
+function rowToStore(r: Record<string, unknown>): Store {
+  return {
+    id: r.id as string,
+    ownerId: r.owner_id as string,
+    name: r.name as string,
+    slug: r.slug as string,
+    slogan: (r.slogan as string) || undefined,
+    phone: r.phone as string,
+    whatsapp: r.whatsapp as string,
+    deliveryType: r.delivery_type as "flat" | "by_city",
+    flatFee: r.flat_fee as number,
+    freeAbove: (r.free_above as number) ?? null,
+    cityFees: (r.city_fees as Record<string, number>) || undefined,
+    themeColor: r.theme_color as string,
+    logoUrl: (r.logo_url as string) || undefined,
+    orderSeq: r.order_seq as number,
+    plan: r.plan as "free" | "pro",
+    createdAt: r.created_at as string,
+  }
+}
+
+function rowToProduct(
+  r: Record<string, unknown>,
+  variants: ProductVariant[]
+): Product {
+  return {
+    id: r.id as string,
+    storeId: r.store_id as string,
+    name: r.name as string,
+    price: r.price as number,
+    category: r.category as string,
+    description: (r.description as string) || undefined,
+    image: (r.image as string) || undefined,
+    variants,
+    stock: r.stock as number,
+    status: r.status as ProductStatus,
+    createdAt: r.created_at as string,
+  }
+}
+
+function rowToVariant(r: Record<string, unknown>): ProductVariant {
+  return {
+    id: r.id as string,
+    size: r.size as string,
+    color: r.color as string,
+    stock: r.stock as number,
+  }
+}
+
+function rowToCustomer(r: Record<string, unknown>): Customer {
+  return {
+    id: r.id as string,
+    storeId: r.store_id as string,
+    name: r.name as string,
+    phone: r.phone as string,
+    city: r.city as string,
+    totalOrders: r.total_orders as number,
+    totalSpent: r.total_spent as number,
+    lastOrder: (r.last_order as string) || "",
+    tag: r.tag as string,
+    createdAt: r.created_at as string,
+  }
+}
+
+function rowToOrderItem(r: Record<string, unknown>): OrderItem {
+  return {
+    id: r.id as string,
+    productId: r.product_id as string,
+    variantId: (r.variant_id as string) || undefined,
+    name: r.name_snapshot as string,
+    price: r.unit_price as number,
+    size: r.size as string,
+    color: r.color as string,
+    quantity: r.quantity as number,
+  }
+}
+
+function rowToStatusHistory(
+  r: Record<string, unknown>
+): OrderStatusHistoryEntry {
+  return {
+    status: r.status as OrderStatusHistoryEntry["status"],
+    timestamp: r.created_at as string,
+    note: (r.note as string) || undefined,
+  }
+}
+
+function rowToAuditLog(r: Record<string, unknown>): AuditLogEntry {
+  return {
+    id: r.id as string,
+    storeId: r.store_id as string,
+    action: r.action as string,
+    details: r.details as string,
+    timestamp: r.created_at as string,
+  }
+}
+
+// ─────────────────────────────────────────────
+// Users
+// ─────────────────────────────────────────────
+
 export async function getUserById(id: string): Promise<User | null> {
-  return withTransaction((db) => db.users.find((u) => u.id === id) ?? null)
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return rowToUser(data)
 }
 
 export async function getUserByPhone(phone: string): Promise<User | null> {
-  return withTransaction((db) => db.users.find((u) => u.phone === phone) ?? null)
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select("*")
+    .eq("phone", phone)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return rowToUser(data)
 }
 
 export async function createUser(phone: string): Promise<User> {
-  return withTransaction((db) => {
-    const existing = db.users.find((u) => u.phone === phone)
-    if (existing) return existing
+  // Upsert to handle race conditions
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .upsert({ phone }, { onConflict: "phone" })
+    .select()
+    .single()
 
-    const user: User = {
-      id: `usr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      phone,
-      createdAt: new Date().toISOString(),
-    }
-    db.users.push(user)
-    return user
-  })
+  if (error) throw new Error(`Failed to create user: ${error.message}`)
+  return rowToUser(data)
 }
 
+// ─────────────────────────────────────────────
+// Stores
+// ─────────────────────────────────────────────
+
 export async function getStoreById(id: string): Promise<Store | null> {
-  return withTransaction((db) => db.stores.find((s) => s.id === id) ?? null)
+  const { data, error } = await supabaseAdmin
+    .from("stores")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return rowToStore(data)
 }
 
 export async function getStoreBySlug(slug: string): Promise<Store | null> {
   const clean = slug.toLowerCase().trim()
-  return withTransaction(
-    (db) => db.stores.find((s) => s.slug.toLowerCase().trim() === clean) ?? null
-  )
+  const { data, error } = await supabaseAdmin
+    .from("stores")
+    .select("*")
+    .eq("slug", clean)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return rowToStore(data)
 }
 
-export async function getStoreByOwnerId(ownerId: string): Promise<Store | null> {
-  return withTransaction((db) => db.stores.find((s) => s.ownerId === ownerId) ?? null)
+export async function getStoreByOwnerId(
+  ownerId: string
+): Promise<Store | null> {
+  const { data, error } = await supabaseAdmin
+    .from("stores")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return rowToStore(data)
 }
 
 export async function createStore(
   storeData: Omit<Store, "id" | "createdAt" | "orderSeq">
 ): Promise<Store> {
-  return withTransaction((db) => {
-    const store: Store = {
-      ...storeData,
-      id: `str-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      orderSeq: 1000,
-      createdAt: new Date().toISOString(),
-    }
-    db.stores.push(store)
-    return store
-  })
+  const { data, error } = await supabaseAdmin
+    .from("stores")
+    .insert({
+      owner_id: storeData.ownerId,
+      name: storeData.name,
+      slug: storeData.slug,
+      slogan: storeData.slogan || null,
+      phone: storeData.phone,
+      whatsapp: storeData.whatsapp,
+      delivery_type: storeData.deliveryType,
+      flat_fee: storeData.flatFee,
+      free_above: storeData.freeAbove,
+      city_fees: storeData.cityFees || {},
+      theme_color: storeData.themeColor,
+      logo_url: storeData.logoUrl || null,
+      plan: storeData.plan,
+    })
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to create store: ${error.message}`)
+  return rowToStore(data)
 }
 
 export async function updateStore(
   id: string,
   updates: Partial<Store>
 ): Promise<Store | null> {
-  return withTransaction((db) => {
-    const index = db.stores.findIndex((s) => s.id === id)
-    if (index === -1) return null
+  // Map camelCase to snake_case
+  const dbUpdates: Record<string, unknown> = {}
+  if (updates.name !== undefined) dbUpdates.name = updates.name
+  if (updates.slug !== undefined) dbUpdates.slug = updates.slug
+  if (updates.slogan !== undefined) dbUpdates.slogan = updates.slogan
+  if (updates.phone !== undefined) dbUpdates.phone = updates.phone
+  if (updates.whatsapp !== undefined) dbUpdates.whatsapp = updates.whatsapp
+  if (updates.deliveryType !== undefined)
+    dbUpdates.delivery_type = updates.deliveryType
+  if (updates.flatFee !== undefined) dbUpdates.flat_fee = updates.flatFee
+  if (updates.freeAbove !== undefined) dbUpdates.free_above = updates.freeAbove
+  if (updates.cityFees !== undefined) dbUpdates.city_fees = updates.cityFees
+  if (updates.themeColor !== undefined)
+    dbUpdates.theme_color = updates.themeColor
+  if (updates.logoUrl !== undefined) dbUpdates.logo_url = updates.logoUrl
+  if (updates.orderSeq !== undefined) dbUpdates.order_seq = updates.orderSeq
+  if (updates.plan !== undefined) dbUpdates.plan = updates.plan
 
-    const updated: Store = {
-      ...db.stores[index],
-      ...updates,
-    }
-    db.stores[index] = updated
-    return updated
-  })
+  const { data, error } = await supabaseAdmin
+    .from("stores")
+    .update(dbUpdates)
+    .eq("id", id)
+    .select()
+    .maybeSingle()
+
+  if (error || !data) return null
+  return rowToStore(data)
 }
 
-export async function getProductsByStore(storeId: string): Promise<Product[]> {
-  return withTransaction((db) =>
-    db.products.filter((p) => p.storeId === storeId)
+// ─────────────────────────────────────────────
+// Products (with variants)
+// ─────────────────────────────────────────────
+
+async function fetchVariantsForProduct(
+  productId: string
+): Promise<ProductVariant[]> {
+  const { data } = await supabaseAdmin
+    .from("product_variants")
+    .select("*")
+    .eq("product_id", productId)
+
+  return (data || []).map(rowToVariant)
+}
+
+async function fetchVariantsForProducts(
+  productIds: string[]
+): Promise<Map<string, ProductVariant[]>> {
+  if (productIds.length === 0) return new Map()
+
+  const { data } = await supabaseAdmin
+    .from("product_variants")
+    .select("*")
+    .in("product_id", productIds)
+
+  const map = new Map<string, ProductVariant[]>()
+  for (const row of data || []) {
+    const pid = row.product_id as string
+    if (!map.has(pid)) map.set(pid, [])
+    map.get(pid)!.push(rowToVariant(row))
+  }
+  return map
+}
+
+export async function getProductsByStore(
+  storeId: string
+): Promise<Product[]> {
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .select("*")
+    .eq("store_id", storeId)
+
+  if (error || !data) return []
+
+  const productIds = data.map((p) => p.id as string)
+  const variantsMap = await fetchVariantsForProducts(productIds)
+
+  return data.map((row) =>
+    rowToProduct(row, variantsMap.get(row.id as string) || [])
   )
 }
 
 export async function getProductById(id: string): Promise<Product | null> {
-  return withTransaction((db) => db.products.find((p) => p.id === id) ?? null)
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle()
+
+  if (error || !data) return null
+
+  const variants = await fetchVariantsForProduct(id)
+  return rowToProduct(data, variants)
 }
 
 export async function createProduct(
   productData: Omit<Product, "id" | "createdAt" | "stock" | "status">
 ): Promise<Product> {
-  return withTransaction((db) => {
-    const { stock, status } = computeProductStockAndStatus(productData.variants)
-    const product: Product = {
-      ...productData,
-      id: `prod-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  const { stock, status } = computeProductStockAndStatus(productData.variants)
+
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .insert({
+      store_id: productData.storeId,
+      name: productData.name,
+      price: productData.price,
+      category: productData.category,
+      description: productData.description || null,
+      image: productData.image || null,
       stock,
       status,
-      createdAt: new Date().toISOString(),
-    }
-    db.products.unshift(product)
-    return product
-  })
+    })
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to create product: ${error.message}`)
+
+  // Insert variants
+  const productId = data.id as string
+  if (productData.variants.length > 0) {
+    const variantRows = productData.variants.map((v) => ({
+      product_id: productId,
+      size: v.size,
+      color: v.color,
+      stock: v.stock,
+    }))
+
+    await supabaseAdmin.from("product_variants").insert(variantRows)
+  }
+
+  const variants = await fetchVariantsForProduct(productId)
+  return rowToProduct(data, variants)
 }
 
 export async function updateProduct(
   id: string,
   updates: Partial<Product>
 ): Promise<Product | null> {
-  return withTransaction((db) => {
-    const index = db.products.findIndex((p) => p.id === id)
-    if (index === -1) return null
+  // First get current product to compute stock
+  const current = await getProductById(id)
+  if (!current) return null
 
-    const current = db.products[index]
-    const variants = updates.variants ?? current.variants
-    const { stock, status } = computeProductStockAndStatus(variants)
+  const variants = updates.variants ?? current.variants
+  const { stock, status } = computeProductStockAndStatus(variants)
 
-    const updated: Product = {
-      ...current,
-      ...updates,
-      variants,
-      stock,
-      status,
+  const dbUpdates: Record<string, unknown> = { stock, status }
+  if (updates.name !== undefined) dbUpdates.name = updates.name
+  if (updates.price !== undefined) dbUpdates.price = updates.price
+  if (updates.category !== undefined) dbUpdates.category = updates.category
+  if (updates.description !== undefined)
+    dbUpdates.description = updates.description
+  if (updates.image !== undefined) dbUpdates.image = updates.image
+
+  const { data, error } = await supabaseAdmin
+    .from("products")
+    .update(dbUpdates)
+    .eq("id", id)
+    .select()
+    .maybeSingle()
+
+  if (error || !data) return null
+
+  // If variants changed, replace them
+  if (updates.variants) {
+    // Delete old variants
+    await supabaseAdmin.from("product_variants").delete().eq("product_id", id)
+
+    // Insert new variants
+    if (updates.variants.length > 0) {
+      const variantRows = updates.variants.map((v) => ({
+        product_id: id,
+        size: v.size,
+        color: v.color,
+        stock: v.stock,
+      }))
+      await supabaseAdmin.from("product_variants").insert(variantRows)
     }
-    db.products[index] = updated
-    return updated
-  })
+  }
+
+  const newVariants = await fetchVariantsForProduct(id)
+  return rowToProduct(data, newVariants)
 }
 
 export async function deleteProduct(id: string): Promise<boolean> {
-  return withTransaction((db) => {
-    const initialLen = db.products.length
-    db.products = db.products.filter((p) => p.id !== id)
-    return db.products.length < initialLen
-  })
+  // Variants are cascade deleted
+  const { error } = await supabaseAdmin.from("products").delete().eq("id", id)
+  return !error
+}
+
+// ─────────────────────────────────────────────
+// Orders (with items + status history)
+// ─────────────────────────────────────────────
+
+async function fetchOrderItems(orderId: string): Promise<OrderItem[]> {
+  const { data } = await supabaseAdmin
+    .from("order_items")
+    .select("*")
+    .eq("order_id", orderId)
+
+  return (data || []).map(rowToOrderItem)
+}
+
+async function fetchOrderItemsBatch(
+  orderIds: string[]
+): Promise<Map<string, OrderItem[]>> {
+  if (orderIds.length === 0) return new Map()
+
+  const { data } = await supabaseAdmin
+    .from("order_items")
+    .select("*")
+    .in("order_id", orderIds)
+
+  const map = new Map<string, OrderItem[]>()
+  for (const row of data || []) {
+    const oid = row.order_id as string
+    if (!map.has(oid)) map.set(oid, [])
+    map.get(oid)!.push(rowToOrderItem(row))
+  }
+  return map
+}
+
+async function fetchStatusHistoryBatch(
+  orderIds: string[]
+): Promise<Map<string, OrderStatusHistoryEntry[]>> {
+  if (orderIds.length === 0) return new Map()
+
+  const { data } = await supabaseAdmin
+    .from("order_status_history")
+    .select("*")
+    .in("order_id", orderIds)
+    .order("created_at", { ascending: true })
+
+  const map = new Map<string, OrderStatusHistoryEntry[]>()
+  for (const row of data || []) {
+    const oid = row.order_id as string
+    if (!map.has(oid)) map.set(oid, [])
+    map.get(oid)!.push(rowToStatusHistory(row))
+  }
+  return map
+}
+
+async function fetchStatusHistory(
+  orderId: string
+): Promise<OrderStatusHistoryEntry[]> {
+  const { data } = await supabaseAdmin
+    .from("order_status_history")
+    .select("*")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: true })
+
+  return (data || []).map(rowToStatusHistory)
+}
+
+function rowToOrder(
+  r: Record<string, unknown>,
+  items: OrderItem[],
+  statusHistory: OrderStatusHistoryEntry[]
+): Order {
+  return {
+    id: r.id as string,
+    orderNumber: r.order_number as string,
+    storeId: r.store_id as string,
+    customerId: r.customer_id as string,
+    customerName: r.customer_name as string,
+    customerPhone: r.customer_phone as string,
+    customerCity: r.customer_city as string,
+    customerAddress: r.customer_address as string,
+    customerNotes: (r.customer_notes as string) || undefined,
+    items,
+    subtotal: r.subtotal as number,
+    deliveryFee: r.delivery_fee as number,
+    total: r.total as number,
+    status: r.status as Order["status"],
+    statusHistory,
+    createdAt: r.created_at as string,
+  }
 }
 
 export async function getOrdersByStore(storeId: string): Promise<Order[]> {
-  return withTransaction((db) =>
-    db.orders
-      .filter((o) => o.storeId === storeId)
-      .sort((a, b) => Number(b.orderNumber) - Number(a.orderNumber))
+  const { data, error } = await supabaseAdmin
+    .from("orders")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("order_number", { ascending: false })
+
+  if (error || !data) return []
+
+  const orderIds = data.map((o) => o.id as string)
+  const [itemsMap, historyMap] = await Promise.all([
+    fetchOrderItemsBatch(orderIds),
+    fetchStatusHistoryBatch(orderIds),
+  ])
+
+  return data.map((row) =>
+    rowToOrder(
+      row,
+      itemsMap.get(row.id as string) || [],
+      historyMap.get(row.id as string) || []
+    )
   )
 }
 
 export async function getOrderById(id: string): Promise<Order | null> {
-  return withTransaction((db) => db.orders.find((o) => o.id === id) ?? null)
+  const { data, error } = await supabaseAdmin
+    .from("orders")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle()
+
+  if (error || !data) return null
+
+  const [items, statusHistory] = await Promise.all([
+    fetchOrderItems(id),
+    fetchStatusHistory(id),
+  ])
+
+  return rowToOrder(data, items, statusHistory)
 }
 
-export async function getCustomersByStore(storeId: string): Promise<Customer[]> {
-  return withTransaction((db) =>
-    db.customers.filter((c) => c.storeId === storeId)
-  )
+// ─────────────────────────────────────────────
+// Customers
+// ─────────────────────────────────────────────
+
+export async function getCustomersByStore(
+  storeId: string
+): Promise<Customer[]> {
+  const { data, error } = await supabaseAdmin
+    .from("customers")
+    .select("*")
+    .eq("store_id", storeId)
+
+  if (error || !data) return []
+  return data.map(rowToCustomer)
 }
 
-export async function getDashboardStats(storeId: string): Promise<DashboardStats> {
-  return withTransaction((db) => {
-    const storeOrders = db.orders.filter((o) => o.storeId === storeId)
-    const storeProducts = db.products.filter((p) => p.storeId === storeId)
-    const storeCustomers = db.customers.filter((c) => c.storeId === storeId)
+// ─────────────────────────────────────────────
+// Sessions (OTP / Auth)
+// ─────────────────────────────────────────────
 
-    const todayDate = new Date().toISOString().slice(0, 10)
-    const todayOrders = storeOrders.filter(
-      (o) => o.createdAt.slice(0, 10) === todayDate
-    )
+export async function getSessionById(
+  sessionId: string
+): Promise<Session | null> {
+  const { data, error } = await supabaseAdmin
+    .from("sessions")
+    .select("*")
+    .eq("id", sessionId)
+    .gt("expires_at", Date.now())
+    .maybeSingle()
 
-    const todaySales = todayOrders.reduce((sum, o) => sum + o.total, 0)
-    const newOrdersCount = storeOrders.filter((o) => o.status === "جديد").length
-    const lowStockProductsCount = storeProducts.filter(
-      (p) => p.status === "مخزون منخفض" || p.status === "نفذ المخزون"
-    ).length
+  if (error || !data) return null
+  return {
+    id: data.id as string,
+    userId: data.user_id as string,
+    storeId: data.store_id as string,
+    expiresAt: data.expires_at as number,
+  }
+}
 
-    return {
-      todaySales,
-      todayOrdersCount: todayOrders.length,
-      newOrdersCount,
-      totalProductsCount: storeProducts.length,
-      lowStockProductsCount,
-      totalCustomersCount: storeCustomers.length,
-    }
+export async function createSession(session: Session): Promise<void> {
+  // Clean up expired sessions first
+  await supabaseAdmin
+    .from("sessions")
+    .delete()
+    .lt("expires_at", Date.now())
+
+  await supabaseAdmin.from("sessions").insert({
+    id: session.id,
+    user_id: session.userId,
+    store_id: session.storeId,
+    expires_at: session.expiresAt,
   })
 }
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  await supabaseAdmin.from("sessions").delete().eq("id", sessionId)
+}
+
+// ─────────────────────────────────────────────
+// OTP Codes
+// ─────────────────────────────────────────────
+
+export async function createOtpCode(otp: OtpCode): Promise<void> {
+  // Invalidate existing unused codes for this phone
+  await supabaseAdmin
+    .from("otp_codes")
+    .update({ used: true })
+    .eq("phone", otp.phone)
+    .eq("used", false)
+
+  await supabaseAdmin.from("otp_codes").insert({
+    phone: otp.phone,
+    code_hash: otp.codeHash,
+    attempts: otp.attempts,
+    expires_at: otp.expiresAt,
+    used: false,
+  })
+}
+
+export async function getLatestActiveOtp(
+  phone: string
+): Promise<OtpCode | null> {
+  const { data, error } = await supabaseAdmin
+    .from("otp_codes")
+    .select("*")
+    .eq("phone", phone)
+    .eq("used", false)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return {
+    id: data.id as string,
+    phone: data.phone as string,
+    codeHash: data.code_hash as string,
+    attempts: data.attempts as number,
+    expiresAt: data.expires_at as number,
+    used: data.used as boolean,
+  }
+}
+
+export async function updateOtpCode(
+  id: string,
+  updates: Partial<{ attempts: number; used: boolean }>
+): Promise<void> {
+  await supabaseAdmin.from("otp_codes").update(updates).eq("id", id)
+}
+
+// ─────────────────────────────────────────────
+// Dashboard Stats
+// ─────────────────────────────────────────────
+
+export async function getDashboardStats(
+  storeId: string
+): Promise<DashboardStats> {
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const todayISO = todayStart.toISOString()
+
+  // Parallel queries
+  const [ordersRes, todayOrdersRes, newOrdersRes, productsRes, lowStockRes, customersRes] =
+    await Promise.all([
+      // We don't need all orders, just counts
+      supabaseAdmin
+        .from("orders")
+        .select("total", { count: "exact" })
+        .eq("store_id", storeId)
+        .gte("created_at", todayISO),
+      supabaseAdmin
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("store_id", storeId)
+        .gte("created_at", todayISO),
+      supabaseAdmin
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("store_id", storeId)
+        .eq("status", "جديد"),
+      supabaseAdmin
+        .from("products")
+        .select("*", { count: "exact", head: true })
+        .eq("store_id", storeId),
+      supabaseAdmin
+        .from("products")
+        .select("*", { count: "exact", head: true })
+        .eq("store_id", storeId)
+        .or("status.eq.مخزون منخفض,status.eq.نفذ المخزون"),
+      supabaseAdmin
+        .from("customers")
+        .select("*", { count: "exact", head: true })
+        .eq("store_id", storeId),
+    ])
+
+  const todaySales = (ordersRes.data || []).reduce(
+    (sum, o) => sum + ((o.total as number) || 0),
+    0
+  )
+
+  return {
+    todaySales,
+    todayOrdersCount: todayOrdersRes.count || 0,
+    newOrdersCount: newOrdersRes.count || 0,
+    totalProductsCount: productsRes.count || 0,
+    lowStockProductsCount: lowStockRes.count || 0,
+    totalCustomersCount: customersRes.count || 0,
+  }
+}
+
+// ─────────────────────────────────────────────
+// Audit Logs
+// ─────────────────────────────────────────────
 
 export async function addAuditLog(
   storeId: string,
   action: string,
   details: string
 ): Promise<void> {
-  await withTransaction((db) => {
-    db.auditLogs.unshift({
-      id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      storeId,
-      action,
-      details,
-      timestamp: new Date().toISOString(),
-    })
+  await supabaseAdmin.from("audit_logs").insert({
+    store_id: storeId,
+    action,
+    details,
   })
+}
+
+// ─────────────────────────────────────────────
+// Transaction-like operations for orders
+// ─────────────────────────────────────────────
+
+/**
+ * Places a new order with full inventory management.
+ * Since Supabase doesn't support true transactions via REST,
+ * we use careful sequential operations with validation.
+ */
+export async function placeOrderTransaction(input: {
+  storeSlug: string
+  customerName: string
+  customerPhone: string
+  customerCity: string
+  customerAddress: string
+  customerNotes?: string
+  items: {
+    productId: string
+    variantId?: string
+    size: string
+    color: string
+    quantity: number
+  }[]
+}): Promise<
+  | { ok: false; error: string }
+  | {
+      ok: true
+      orderNumber: string
+      subtotal: number
+      deliveryFee: number
+      total: number
+    }
+> {
+  // 1. Get store
+  const store = await getStoreBySlug(input.storeSlug)
+  if (!store) {
+    return { ok: false, error: "المتجر المطلوب غير موجود" }
+  }
+
+  // 2. Validate items and compute prices
+  let subtotal = 0
+  const orderItems: {
+    product_id: string
+    variant_id: string
+    name_snapshot: string
+    unit_price: number
+    size: string
+    color: string
+    quantity: number
+  }[] = []
+
+  for (const cartItem of input.items) {
+    const product = await getProductById(cartItem.productId)
+    if (!product || product.storeId !== store.id) {
+      return {
+        ok: false,
+        error: "أحد المنتجات الموجودة في السلة غير متوفر حالياً.",
+      }
+    }
+
+    const variant = product.variants.find(
+      (v) =>
+        (cartItem.variantId && v.id === cartItem.variantId) ||
+        (v.size === cartItem.size && v.color === cartItem.color)
+    )
+
+    if (!variant) {
+      return {
+        ok: false,
+        error: `المقاس ${cartItem.size} أو اللون ${cartItem.color} للمنتج "${product.name}" غير متوفر.`,
+      }
+    }
+
+    if (variant.stock < cartItem.quantity) {
+      return {
+        ok: false,
+        error: `عذراً، الكمية المتوفرة في المخزن من "${product.name}" (${cartItem.size} - ${cartItem.color}) هي ${variant.stock} قطعة فقط.`,
+      }
+    }
+
+    // Deduct variant stock
+    const newVariantStock = variant.stock - cartItem.quantity
+    await supabaseAdmin
+      .from("product_variants")
+      .update({ stock: newVariantStock })
+      .eq("id", variant.id)
+
+    // Recompute product stock/status
+    const updatedVariants = product.variants.map((v) =>
+      v.id === variant.id ? { ...v, stock: newVariantStock } : v
+    )
+    const { stock, status } = computeProductStockAndStatus(updatedVariants)
+    await supabaseAdmin
+      .from("products")
+      .update({ stock, status })
+      .eq("id", product.id)
+
+    const itemTotal = product.price * cartItem.quantity
+    subtotal += itemTotal
+
+    orderItems.push({
+      product_id: product.id,
+      variant_id: variant.id,
+      name_snapshot: product.name,
+      unit_price: product.price,
+      size: cartItem.size,
+      color: cartItem.color,
+      quantity: cartItem.quantity,
+    })
+  }
+
+  // 3. Compute delivery fee
+  let deliveryFee = store.flatFee
+  if (store.freeAbove !== null && subtotal >= store.freeAbove) {
+    deliveryFee = 0
+  } else if (store.deliveryType === "by_city" && store.cityFees) {
+    deliveryFee = store.cityFees[input.customerCity] ?? store.flatFee
+  }
+
+  const grandTotal = subtotal + deliveryFee
+
+  // 4. Increment order sequence
+  const newSeq = (store.orderSeq || 1000) + 1
+  await updateStore(store.id, { orderSeq: newSeq })
+  const orderNumber = String(newSeq)
+
+  // 5. Upsert customer
+  const { data: existingCustomer } = await supabaseAdmin
+    .from("customers")
+    .select("*")
+    .eq("store_id", store.id)
+    .eq("phone", input.customerPhone)
+    .maybeSingle()
+
+  let customerId: string
+
+  if (existingCustomer) {
+    customerId = existingCustomer.id as string
+    const totalOrders = (existingCustomer.total_orders as number) + 1
+    const totalSpent = (existingCustomer.total_spent as number) + grandTotal
+    await supabaseAdmin
+      .from("customers")
+      .update({
+        name: input.customerName,
+        city: input.customerCity,
+        total_orders: totalOrders,
+        total_spent: totalSpent,
+        last_order: "اليوم",
+        tag: totalOrders >= 3 ? "عميل مميز ⭐" : existingCustomer.tag,
+      })
+      .eq("id", customerId)
+  } else {
+    const { data: newCustomer, error } = await supabaseAdmin
+      .from("customers")
+      .insert({
+        store_id: store.id,
+        name: input.customerName,
+        phone: input.customerPhone,
+        city: input.customerCity,
+        total_orders: 1,
+        total_spent: grandTotal,
+        last_order: "اليوم",
+        tag: "جديد",
+      })
+      .select()
+      .single()
+
+    if (error) throw new Error(`Failed to create customer: ${error.message}`)
+    customerId = newCustomer.id as string
+  }
+
+  // 6. Create order
+  const { data: orderData, error: orderError } = await supabaseAdmin
+    .from("orders")
+    .insert({
+      order_number: orderNumber,
+      store_id: store.id,
+      customer_id: customerId,
+      customer_name: input.customerName,
+      customer_phone: input.customerPhone,
+      customer_city: input.customerCity,
+      customer_address: input.customerAddress,
+      customer_notes: input.customerNotes || null,
+      subtotal,
+      delivery_fee: deliveryFee,
+      total: grandTotal,
+      status: "جديد",
+    })
+    .select()
+    .single()
+
+  if (orderError)
+    throw new Error(`Failed to create order: ${orderError.message}`)
+
+  const orderId = orderData.id as string
+
+  // 7. Insert order items
+  const itemRows = orderItems.map((item) => ({
+    order_id: orderId,
+    ...item,
+  }))
+  await supabaseAdmin.from("order_items").insert(itemRows)
+
+  // 8. Insert initial status history
+  await supabaseAdmin.from("order_status_history").insert({
+    order_id: orderId,
+    status: "جديد",
+    note: "تم استلام الطلب بنجاح عبر المتجر",
+  })
+
+  return {
+    ok: true,
+    orderNumber,
+    subtotal,
+    deliveryFee,
+    total: grandTotal,
+  }
+}
+
+/**
+ * Updates an order's status with inventory management for cancellation/un-cancellation.
+ */
+export async function updateOrderStatusTransaction(
+  orderId: string,
+  storeId: string,
+  newStatus: Order["status"],
+  note?: string
+): Promise<Order | null> {
+  const order = await getOrderById(orderId)
+  if (!order || order.storeId !== storeId) return null
+  if (order.status === newStatus) return order
+
+  const previousStatus = order.status
+
+  // Inventory management on cancellation
+  if (newStatus === "ملغي" && previousStatus !== "ملغي") {
+    // Restore stock
+    for (const item of order.items) {
+      if (item.variantId) {
+        const { data: variant } = await supabaseAdmin
+          .from("product_variants")
+          .select("*")
+          .eq("id", item.variantId)
+          .maybeSingle()
+
+        if (variant) {
+          await supabaseAdmin
+            .from("product_variants")
+            .update({ stock: (variant.stock as number) + item.quantity })
+            .eq("id", item.variantId)
+        }
+      }
+
+      // Recompute product stock
+      const product = await getProductById(item.productId)
+      if (product) {
+        const { stock, status } = computeProductStockAndStatus(product.variants)
+        await supabaseAdmin
+          .from("products")
+          .update({ stock, status })
+          .eq("id", product.id)
+      }
+    }
+  } else if (previousStatus === "ملغي" && newStatus !== "ملغي") {
+    // Re-deduct stock
+    for (const item of order.items) {
+      if (item.variantId) {
+        const { data: variant } = await supabaseAdmin
+          .from("product_variants")
+          .select("*")
+          .eq("id", item.variantId)
+          .maybeSingle()
+
+        if (variant) {
+          const newStock = Math.max(
+            0,
+            (variant.stock as number) - item.quantity
+          )
+          await supabaseAdmin
+            .from("product_variants")
+            .update({ stock: newStock })
+            .eq("id", item.variantId)
+        }
+      }
+
+      const product = await getProductById(item.productId)
+      if (product) {
+        const { stock, status } = computeProductStockAndStatus(product.variants)
+        await supabaseAdmin
+          .from("products")
+          .update({ stock, status })
+          .eq("id", product.id)
+      }
+    }
+  }
+
+  // Update order status
+  await supabaseAdmin
+    .from("orders")
+    .update({ status: newStatus })
+    .eq("id", orderId)
+
+  // Add status history
+  await supabaseAdmin.from("order_status_history").insert({
+    order_id: orderId,
+    status: newStatus,
+    note: note || null,
+  })
+
+  return getOrderById(orderId)
 }

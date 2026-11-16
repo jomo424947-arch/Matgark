@@ -1,5 +1,8 @@
--- Migration: 0001_initial_schema.sql
--- Description: Complete initial schema for Matgarak platform with multi-tenant isolation, RLS, and constraints.
+-- =====================================================================
+-- Matgarak Platform - Complete Database Schema
+-- Run this SQL in your Supabase Dashboard SQL Editor:
+-- https://supabase.com/dashboard/project/sgbrenakklawsfbhenaj/sql/new
+-- =====================================================================
 
 -- 1. Users table (Merchants / Admins)
 CREATE TABLE IF NOT EXISTS users (
@@ -8,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- 2. OTP Codes table (Hashed 6-digit verification codes)
+-- 2. OTP Codes table
 CREATE TABLE IF NOT EXISTS otp_codes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     phone VARCHAR(20) NOT NULL,
@@ -20,17 +23,7 @@ CREATE TABLE IF NOT EXISTS otp_codes (
 );
 CREATE INDEX IF NOT EXISTS idx_otp_codes_phone ON otp_codes(phone);
 
--- 3. Sessions table
-CREATE TABLE IF NOT EXISTS sessions (
-    id VARCHAR(128) PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    store_id UUID NOT NULL,
-    expires_at BIGINT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
-);
-CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-
--- 4. Stores table
+-- 3. Stores table
 CREATE TABLE IF NOT EXISTS stores (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -39,9 +32,10 @@ CREATE TABLE IF NOT EXISTS stores (
     slogan TEXT,
     phone VARCHAR(20) NOT NULL,
     whatsapp VARCHAR(20) NOT NULL,
-    delivery_type VARCHAR(20) NOT NULL DEFAULT 'flat', -- 'flat' | 'by_city'
+    delivery_type VARCHAR(20) NOT NULL DEFAULT 'flat',
     flat_fee INT NOT NULL DEFAULT 40,
     free_above INT,
+    city_fees JSONB DEFAULT '{}',
     theme_color VARCHAR(10) NOT NULL DEFAULT '#E8732A',
     logo_url TEXT,
     order_seq INT NOT NULL DEFAULT 1000,
@@ -51,7 +45,17 @@ CREATE TABLE IF NOT EXISTS stores (
 CREATE INDEX IF NOT EXISTS idx_stores_slug ON stores(slug);
 CREATE INDEX IF NOT EXISTS idx_stores_owner_id ON stores(owner_id);
 
--- 5. Delivery Zones (optional city fees)
+-- 4. Sessions table
+CREATE TABLE IF NOT EXISTS sessions (
+    id VARCHAR(128) PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    store_id UUID REFERENCES stores(id) ON DELETE CASCADE,
+    expires_at BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+
+-- 5. Delivery Zones
 CREATE TABLE IF NOT EXISTS delivery_zones (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
@@ -70,12 +74,12 @@ CREATE TABLE IF NOT EXISTS products (
     description TEXT,
     image TEXT,
     stock INT NOT NULL DEFAULT 0 CHECK (stock >= 0),
-    status VARCHAR(30) NOT NULL DEFAULT 'نشط', -- 'نشط' | 'مخزون منخفض' | 'نفذ المخزون'
+    status VARCHAR(30) NOT NULL DEFAULT 'نشط',
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 CREATE INDEX IF NOT EXISTS idx_products_store_id ON products(store_id);
 
--- 7. Product Variants (sizes, colors, per-variant inventory)
+-- 7. Product Variants
 CREATE TABLE IF NOT EXISTS product_variants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -85,7 +89,7 @@ CREATE TABLE IF NOT EXISTS product_variants (
 );
 CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON product_variants(product_id);
 
--- 8. Customers table (Scoped per store)
+-- 8. Customers table
 CREATE TABLE IF NOT EXISTS customers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
@@ -115,14 +119,14 @@ CREATE TABLE IF NOT EXISTS orders (
     subtotal INT NOT NULL CHECK (subtotal >= 0),
     delivery_fee INT NOT NULL CHECK (delivery_fee >= 0),
     total INT NOT NULL CHECK (total >= 0),
-    status VARCHAR(30) NOT NULL DEFAULT 'جديد', -- 'جديد' | 'مؤكد' | 'جاري الشحن' | 'تم التسليم' | 'ملغي'
+    status VARCHAR(30) NOT NULL DEFAULT 'جديد',
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     UNIQUE(store_id, order_number)
 );
 CREATE INDEX IF NOT EXISTS idx_orders_store_id ON orders(store_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(store_id, status);
 
--- 10. Order Items table (Immutable historical snapshot)
+-- 10. Order Items table
 CREATE TABLE IF NOT EXISTS order_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -136,7 +140,7 @@ CREATE TABLE IF NOT EXISTS order_items (
 );
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
 
--- 11. Order Status History log
+-- 11. Order Status History
 CREATE TABLE IF NOT EXISTS order_status_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -154,34 +158,50 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
--- -------------------------------------------------------------
--- ROW LEVEL SECURITY (RLS) POLICIES FOR SUPABASE
--- -------------------------------------------------------------
+-- =====================================================================
+-- ROW LEVEL SECURITY (RLS) - Allow service_role full access
+-- =====================================================================
+
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE otp_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE delivery_zones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_variants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_status_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Public can read store and products by slug / store_id
-CREATE POLICY "Public stores are readable" ON stores FOR SELECT USING (true);
-CREATE POLICY "Public products are readable" ON products FOR SELECT USING (true);
-CREATE POLICY "Public variants are readable" ON product_variants FOR SELECT USING (true);
+-- Public read for storefront (anon key can read stores, products, variants)
+CREATE POLICY "anon_read_stores" ON stores FOR SELECT TO anon USING (true);
+CREATE POLICY "anon_read_products" ON products FOR SELECT TO anon USING (true);
+CREATE POLICY "anon_read_variants" ON product_variants FOR SELECT TO anon USING (true);
 
--- Store owners can manage their own data
-CREATE POLICY "Store owners manage their store" ON stores
-    FOR ALL USING (auth.uid() = owner_id);
+-- Service role bypasses RLS automatically, but we add explicit policies
+-- for the authenticated role if needed in future
+CREATE POLICY "service_all_users" ON users FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_all_otp" ON otp_codes FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_all_stores" ON stores FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_all_sessions" ON sessions FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_all_zones" ON delivery_zones FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_all_products" ON products FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_all_variants" ON product_variants FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_all_customers" ON customers FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_all_orders" ON orders FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_all_items" ON order_items FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_all_history" ON order_status_history FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY "service_all_audit" ON audit_logs FOR ALL TO service_role USING (true) WITH CHECK (true);
 
-CREATE POLICY "Store owners manage products" ON products
-    FOR ALL USING (EXISTS (SELECT 1 FROM stores WHERE stores.id = products.store_id AND stores.owner_id = auth.uid()));
-
-CREATE POLICY "Store owners manage orders" ON orders
-    FOR ALL USING (EXISTS (SELECT 1 FROM stores WHERE stores.id = orders.store_id AND stores.owner_id = auth.uid()));
-
-CREATE POLICY "Store owners manage customers" ON customers
-    FOR ALL USING (EXISTS (SELECT 1 FROM stores WHERE stores.id = customers.store_id AND stores.owner_id = auth.uid()));
-
-CREATE POLICY "Store owners view audit logs" ON audit_logs
-    FOR SELECT USING (EXISTS (SELECT 1 FROM stores WHERE stores.id = audit_logs.store_id AND stores.owner_id = auth.uid()));
+-- Allow anon to insert orders & related (for public storefront checkout)
+CREATE POLICY "anon_insert_orders" ON orders FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "anon_insert_items" ON order_items FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "anon_insert_history" ON order_status_history FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "anon_insert_customers" ON customers FOR INSERT TO anon WITH CHECK (true);
+CREATE POLICY "anon_update_customers" ON customers FOR UPDATE TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon_read_customers" ON customers FOR SELECT TO anon USING (true);
+CREATE POLICY "anon_update_variants" ON product_variants FOR UPDATE TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon_update_products" ON products FOR UPDATE TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "anon_update_stores" ON stores FOR UPDATE TO anon USING (true) WITH CHECK (true);

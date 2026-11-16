@@ -1,6 +1,6 @@
 import crypto from "node:crypto"
 import { cookies } from "next/headers"
-import { withTransaction } from "@/server/db/client"
+import { createSession, deleteSession } from "@/server/db/client"
 import type { Session } from "@/types/domain"
 
 const COOKIE_NAME = "matgarak_session"
@@ -58,11 +58,7 @@ export async function createSessionCookie(
     expiresAt,
   }
 
-  await withTransaction((db) => {
-    // Clean up expired sessions
-    db.sessions = db.sessions.filter((s) => s.expiresAt > Date.now())
-    db.sessions.push(session)
-  })
+  await createSession(session)
 
   const signedToken = signSessionId(sessionId)
   const cookieStore = await cookies()
@@ -84,9 +80,7 @@ export async function destroySessionCookie(): Promise<void> {
   if (token) {
     const sessionId = verifySessionToken(token)
     if (sessionId) {
-      await withTransaction((db) => {
-        db.sessions = db.sessions.filter((s) => s.id !== sessionId)
-      })
+      await deleteSession(sessionId)
     }
   }
 
