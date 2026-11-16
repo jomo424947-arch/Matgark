@@ -1,8 +1,11 @@
 import { create } from "zustand"
+import { persist } from "zustand/middleware"
 
 export interface CartItem {
   id: string
+  storeSlug: string
   productId: string
+  variantId?: string
   name: string
   price: number
   size: string
@@ -17,51 +20,80 @@ interface CartStore {
   addItem: (item: Omit<CartItem, "id">) => void
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
-  clearCart: () => void
+  clearCart: (storeSlug?: string) => void
   openCart: () => void
   closeCart: () => void
   toggleCart: () => void
-  totalAmount: () => number
-  totalItems: () => number
+  getItemsByStore: (storeSlug: string) => CartItem[]
+  totalAmount: (storeSlug?: string) => number
+  totalItems: (storeSlug?: string) => number
 }
 
-export const useCartStore = create<CartStore>((set, get) => ({
-  items: [],
-  isOpen: false,
-  addItem: (item) => {
-    const id = `${item.productId}-${item.size}-${item.color}`
-    const existing = get().items.find((i) => i.id === id)
+export const useCartStore = create<CartStore>()(
+  persist(
+    (set, get) => ({
+      items: [],
+      isOpen: false,
+      addItem: (item) => {
+        const id = `${item.storeSlug}-${item.productId}-${item.size}-${item.color}`
+        const existing = get().items.find((i) => i.id === id)
 
-    if (existing) {
-      set({
-        items: get().items.map((i) =>
-          i.id === id ? { ...i, quantity: i.quantity + item.quantity } : i
-        ),
-      })
-    } else {
-      set({ items: [...get().items, { ...item, id }] })
+        if (existing) {
+          set({
+            items: get().items.map((i) =>
+              i.id === id ? { ...i, quantity: i.quantity + item.quantity } : i
+            ),
+          })
+        } else {
+          set({ items: [...get().items, { ...item, id }] })
+        }
+        set({ isOpen: true })
+      },
+      removeItem: (id) => {
+        set({ items: get().items.filter((i) => i.id !== id) })
+      },
+      updateQuantity: (id, quantity) => {
+        if (quantity <= 0) {
+          get().removeItem(id)
+          return
+        }
+        set({
+          items: get().items.map((i) =>
+            i.id === id ? { ...i, quantity } : i
+          ),
+        })
+      },
+      clearCart: (storeSlug) => {
+        if (storeSlug) {
+          set({ items: get().items.filter((i) => i.storeSlug !== storeSlug) })
+        } else {
+          set({ items: [] })
+        }
+      },
+      openCart: () => set({ isOpen: true }),
+      closeCart: () => set({ isOpen: false }),
+      toggleCart: () => set({ isOpen: !get().isOpen }),
+      getItemsByStore: (storeSlug) => {
+        return get().items.filter((i) => i.storeSlug === storeSlug)
+      },
+      totalAmount: (storeSlug) => {
+        const relevant = storeSlug
+          ? get().items.filter((i) => i.storeSlug === storeSlug)
+          : get().items
+        return relevant.reduce(
+          (sum, item) => sum + item.price * item.quantity,
+          0
+        )
+      },
+      totalItems: (storeSlug) => {
+        const relevant = storeSlug
+          ? get().items.filter((i) => i.storeSlug === storeSlug)
+          : get().items
+        return relevant.reduce((sum, item) => sum + item.quantity, 0)
+      },
+    }),
+    {
+      name: "matgarak-cart-storage",
     }
-    set({ isOpen: true })
-  },
-  removeItem: (id) => {
-    set({ items: get().items.filter((i) => i.id !== id) })
-  },
-  updateQuantity: (id, quantity) => {
-    if (quantity <= 0) {
-      get().removeItem(id)
-      return
-    }
-    set({
-      items: get().items.map((i) => (i.id === id ? { ...i, quantity } : i)),
-    })
-  },
-  clearCart: () => set({ items: [] }),
-  openCart: () => set({ isOpen: true }),
-  closeCart: () => set({ isOpen: false }),
-  toggleCart: () => set({ isOpen: !get().isOpen }),
-  totalAmount: () =>
-    get().items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-  totalItems: () =>
-    get().items.reduce((sum, item) => sum + item.quantity, 0),
-}))
-
+  )
+)

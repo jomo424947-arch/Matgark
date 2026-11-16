@@ -8,7 +8,6 @@ import {
   MessageSquare,
   Share2,
   TrendingUp,
-  Shield,
 } from "lucide-react"
 
 export function Features() {

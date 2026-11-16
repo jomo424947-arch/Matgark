@@ -1,30 +1,110 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card"
-import { Badge } from "@/components/ui/Badge"
-import { Save, Store, Truck, Palette, MessageCircle, Upload, CheckCircle2 } from "lucide-react"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/Card"
+import { getMerchantDashboardDataAction, updateStoreSettingsAction } from "@/server/actions/store"
+import { sanitizeSlug, isReservedSlug } from "@/lib/reserved-slugs"
+import type { DeliveryType } from "@/types/domain"
+import {
+  Save,
+  Store as StoreIcon,
+  Truck,
+  Palette,
+  MessageCircle,
+  Upload,
+} from "lucide-react"
 import { toast } from "sonner"
 
 export default function SettingsPage() {
   const [storeName, setStoreName] = useState("براند كايرو كوتور")
   const [slug, setSlug] = useState("cairo-couture")
   const [whatsapp, setWhatsapp] = useState("01012345678")
-  const [deliveryType, setDeliveryType] = useState("flat")
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>("flat")
   const [flatFee, setFlatFee] = useState("40")
   const [freeAbove, setFreeAbove] = useState("1000")
+  const [cityFees, setCityFees] = useState<Record<string, number>>({
+    القاهرة: 40,
+    الجيزة: 45,
+    الإسكندرية: 60,
+  })
   const [themeColor, setThemeColor] = useState("#E8732A")
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    getMerchantDashboardDataAction()
+      .then((data) => {
+        if (data.store) {
+          setStoreName(data.store.name)
+          setSlug(data.store.slug)
+          setWhatsapp(data.store.whatsapp)
+          setDeliveryType(data.store.deliveryType)
+          setFlatFee(String(data.store.flatFee))
+          setFreeAbove(
+            data.store.freeAbove !== null ? String(data.store.freeAbove) : ""
+          )
+          if (data.store.cityFees) setCityFees(data.store.cityFees)
+          setThemeColor(data.store.themeColor)
+          setLogoUrl(data.store.logoUrl || null)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("حجم اللوجو كبير، الحد الأقصى 2 ميجابايت")
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setLogoUrl(event.target?.result as string)
+      toast.success("تم اختيار اللوجو بنجاح")
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    const cleanSlug = sanitizeSlug(slug)
+    if (isReservedSlug(cleanSlug)) {
+      toast.error("هذا الرابط محجوز للنظام، يرجى اختيار رابط آخر")
+      return
+    }
+
     setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-      toast.success("تم حفظ إعدادات المتجر بنجاح!")
-    }, 800)
+    const res = await updateStoreSettingsAction({
+      storeName,
+      slug: cleanSlug,
+      whatsapp,
+      deliveryType,
+      flatFee: Number(flatFee) || 0,
+      freeAbove: freeAbove.trim() ? Number(freeAbove) : null,
+      cityFees,
+      themeColor,
+      logoUrl: logoUrl || undefined,
+    })
+    setLoading(false)
+
+    if (!res.ok) {
+      toast.error(res.error || "فشل حفظ الإعدادات")
+      return
+    }
+
+    toast.success("تم حفظ إعدادات المتجر بنجاح!")
   }
 
   const presetColors = [
@@ -38,7 +118,6 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 text-right">
-      
       <div>
         <h1 className="text-2xl sm:text-3xl font-black text-foreground">
           إعدادات المتجر
@@ -49,12 +128,11 @@ export default function SettingsPage() {
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
-        
-        {/* بيانات المتجر الأساسية */}
+        {/* Store Data */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Store className="w-5 h-5 text-primary" />
+              <StoreIcon className="w-5 h-5 text-primary" />
               <CardTitle>بيانات المتجر</CardTitle>
             </div>
             <CardDescription>الاسم واللينك الخاص بمتجرك</CardDescription>
@@ -78,11 +156,16 @@ export default function SettingsPage() {
                 <input
                   type="text"
                   value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
+                  onChange={(e) => setSlug(sanitizeSlug(e.target.value))}
                   required
                   className="flex-1 bg-transparent border-0 outline-none text-foreground font-bold pl-1 text-left"
                 />
               </div>
+              {isReservedSlug(slug) && (
+                <p className="text-xs text-destructive font-semibold">
+                  هذا الرابط محجوز للنظام، يرجى اختيار رابط مختلف.
+                </p>
+              )}
             </div>
 
             <Input
@@ -94,12 +177,14 @@ export default function SettingsPage() {
               dir="ltr"
               className="text-right"
               helperText="كل أوردر جديد هيتبعتلك بتفاصيله على الرقم ده"
-              startIcon={<MessageCircle className="w-4 h-4 text-emerald-500" />}
+              startIcon={
+                <MessageCircle className="w-4 h-4 text-emerald-500" />
+              }
             />
           </CardContent>
         </Card>
 
-        {/* إعدادات الشحن والتوصيل */}
+        {/* Shipping & Delivery */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -145,32 +230,61 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {deliveryType === "flat" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <Input
-                  label="سعر التوصيل الثابت (ج.م)"
-                  type="number"
-                  value={flatFee}
-                  onChange={(e) => setFlatFee(e.target.value)}
-                  dir="ltr"
-                  className="text-right font-bold"
-                />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <Input
+                label="سعر التوصيل الافتراضي (ج.م) *"
+                type="number"
+                value={flatFee}
+                onChange={(e) => setFlatFee(e.target.value)}
+                dir="ltr"
+                className="text-right font-bold"
+              />
 
-                <Input
-                  label="توصيل مجاني للطلبات فوق (ج.م)"
-                  type="number"
-                  value={freeAbove}
-                  onChange={(e) => setFreeAbove(e.target.value)}
-                  dir="ltr"
-                  className="text-right font-bold"
-                  helperText="اتركه فارغاً إذا كنت لا ترغب بتوصيل مجاني"
-                />
+              <Input
+                label="توصيل مجاني للطلبات فوق (ج.م)"
+                type="number"
+                value={freeAbove}
+                onChange={(e) => setFreeAbove(e.target.value)}
+                dir="ltr"
+                className="text-right font-bold"
+                helperText="اتركه فارغاً إذا كنت لا ترغب بتوصيل مجاني"
+              />
+            </div>
+
+            {deliveryType === "by_city" && (
+              <div className="space-y-2 border-t border-border pt-4">
+                <label className="block text-xs font-bold text-foreground">
+                  تحديد رسوم الشحن لكل محافظة (ج.م):
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {["القاهرة", "الجيزة", "الإسكندرية"].map((city) => (
+                    <div
+                      key={city}
+                      className="p-3 rounded-xl border border-border bg-muted/20 space-y-1"
+                    >
+                      <label className="text-xs font-bold text-foreground">
+                        {city}
+                      </label>
+                      <input
+                        type="number"
+                        value={cityFees[city] ?? 40}
+                        onChange={(e) =>
+                          setCityFees({
+                            ...cityFees,
+                            [city]: Number(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full h-9 px-3 rounded-lg border border-input bg-background text-sm font-bold dir-ltr text-right"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* الهوية البصرية وثيم المتجر */}
+        {/* Visual Identity */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -208,22 +322,44 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* رفع اللوجو */}
+            {/* Logo Upload */}
             <div className="pt-2">
               <label className="block text-sm font-semibold text-foreground/90 mb-2">
                 لوجو المحل
               </label>
               <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/30 border border-border">
-                <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center text-primary-foreground font-black text-2xl shadow-md">
-                  ك
-                </div>
+                {logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={logoUrl}
+                    alt="لوجو المتجر"
+                    className="w-16 h-16 rounded-2xl object-cover border border-border shadow-md"
+                  />
+                ) : (
+                  <div
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center text-primary-foreground font-black text-2xl shadow-md"
+                    style={{ backgroundColor: themeColor }}
+                  >
+                    {storeName.charAt(0)}
+                  </div>
+                )}
                 <div className="space-y-1">
-                  <Button type="button" variant="outline" size="sm" className="gap-2">
+                  <label
+                    htmlFor="logo-file-input"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-input bg-background hover:bg-muted text-xs font-bold cursor-pointer transition-colors"
+                  >
                     <Upload className="w-4 h-4" />
                     <span>تغيير صورة اللوجو</span>
-                  </Button>
+                  </label>
+                  <input
+                    id="logo-file-input"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={handleLogoChange}
+                    className="hidden"
+                  />
                   <p className="text-[11px] text-muted-foreground">
-                    PNG أو JPG مربع بحجم لا يتجاوز 2 ميجابايت
+                    PNG أو JPG بحجم لا يتجاوز 2 ميجابايت
                   </p>
                 </div>
               </div>
@@ -231,7 +367,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* زر الحفظ */}
+        {/* Save Button */}
         <div className="flex justify-end pt-4">
           <Button
             type="submit"
@@ -243,9 +379,7 @@ export default function SettingsPage() {
             <span>حفظ كل الإعدادات</span>
           </Button>
         </div>
-
       </form>
     </div>
   )
 }
-

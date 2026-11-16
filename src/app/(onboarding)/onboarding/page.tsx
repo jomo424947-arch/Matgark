@@ -7,47 +7,96 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Card, CardContent } from "@/components/ui/Card"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
+import { completeOnboardingAction } from "@/server/actions/store"
+import { sanitizeSlug, getStorePath, getStoreDisplayUrl } from "@/lib/reserved-slugs"
 import {
   Store,
   MessageCircle,
   Package,
-  CheckCircle2,
   ArrowLeft,
-  ArrowRight,
   Sparkles,
   Upload,
   Copy,
   ExternalLink,
   PartyPopper,
 } from "lucide-react"
+import { toast } from "sonner"
 
 export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [copied, setCopied] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  // Step 1: بيانات المتجر
+  // Step 1: Store data
   const [storeName, setStoreName] = useState("براند رداء للأزياء")
   const [storeSlug, setStoreSlug] = useState("redaa-fashion")
   const [category, setCategory] = useState("ملابس")
 
-  // Step 2: واتساب ورسوم التوصيل
-  const [whatsapp, setWhatsapp] = useState("01099887766")
+  // Step 2: WhatsApp & delivery
+  const [whatsapp, setWhatsapp] = useState("01012345678")
   const [deliveryFee, setDeliveryFee] = useState("40")
 
-  // Step 3: أول منتج
+  // Step 3: First product
   const [productName, setProductName] = useState("فستان صيفي قطن أنيق")
   const [productPrice, setProductPrice] = useState("650")
   const [productSizes, setProductSizes] = useState("S, M, L")
+  const [productImage, setProductImage] = useState<string | null>(null)
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(`https://matgarak.com/${storeSlug}`)
+    navigator.clipboard.writeText(`https://${getStoreDisplayUrl(storeSlug)}`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("حجم الصورة كبير جداً، الحد الأقصى 5 ميجابايت")
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setProductImage(event.target?.result as string)
+      toast.success("تم اختيار صورة المنتج بنجاح")
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleFinishOnboarding = async () => {
+    setLoading(true)
+
+    const res = await completeOnboardingAction({
+      storeName,
+      storeSlug,
+      category,
+      whatsapp,
+      deliveryFee: Number(deliveryFee) || 0,
+      productName,
+      productPrice: Number(productPrice) || 0,
+      productSizes,
+      productImage: productImage || undefined,
+    })
+
+    setLoading(false)
+
+    if (!res.ok) {
+      toast.error(res.error || "فشل إكمال تجهيز المتجر")
+      return
+    }
+
+    if (res.storeSlug) {
+      setStoreSlug(res.storeSlug)
+    }
+
+    toast.success("تم تجهيز متجرك بنجاح!")
+    setCurrentStep(4)
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-between p-4 sm:p-6 lg:p-8 text-right">
-      
       {/* Header */}
       <div className="max-w-4xl mx-auto w-full flex items-center justify-between pb-6 border-b border-border/60">
         <Logo size="md" />
@@ -63,7 +112,6 @@ export default function OnboardingPage() {
 
       {/* Main Wizard */}
       <div className="max-w-2xl mx-auto w-full my-8">
-        
         {/* Progress Stepper */}
         {currentStep <= 3 && (
           <div className="mb-8 space-y-3">
@@ -89,8 +137,7 @@ export default function OnboardingPage() {
 
         <Card className="border-border/80 shadow-2xl overflow-hidden">
           <CardContent className="p-8 sm:p-10 space-y-6">
-
-            {/* Step 1: المتجر والاسم واللينك */}
+            {/* Step 1: Store info */}
             {currentStep === 1 && (
               <div className="space-y-6 animate-in fade-in duration-200">
                 <div className="text-center space-y-2">
@@ -112,12 +159,7 @@ export default function OnboardingPage() {
                     value={storeName}
                     onChange={(e) => {
                       setStoreName(e.target.value)
-                      setStoreSlug(
-                        e.target.value
-                          .toLowerCase()
-                          .trim()
-                          .replace(/[\s\W-]+/g, "-")
-                      )
+                      setStoreSlug(sanitizeSlug(e.target.value))
                     }}
                     required
                   />
@@ -133,11 +175,7 @@ export default function OnboardingPage() {
                       <input
                         type="text"
                         value={storeSlug}
-                        onChange={(e) =>
-                          setStoreSlug(
-                            e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")
-                          )
-                        }
+                        onChange={(e) => setStoreSlug(sanitizeSlug(e.target.value))}
                         className="flex-1 bg-transparent border-0 outline-none text-foreground font-bold pl-1 text-left"
                       />
                     </div>
@@ -164,7 +202,13 @@ export default function OnboardingPage() {
 
                 <Button
                   size="lg"
-                  onClick={() => setCurrentStep(2)}
+                  onClick={() => {
+                    if (!storeName.trim() || !storeSlug.trim()) {
+                      toast.error("يرجى ملء جميع الحقول المطلوبة")
+                      return
+                    }
+                    setCurrentStep(2)
+                  }}
                   className="w-full font-bold shadow-lg shadow-primary/20"
                 >
                   <span>التالي: إعدادات الواتساب والتوصيل</span>
@@ -173,7 +217,7 @@ export default function OnboardingPage() {
               </div>
             )}
 
-            {/* Step 2: واتساب ورسوم الشحن */}
+            {/* Step 2: Delivery & WhatsApp */}
             {currentStep === 2 && (
               <div className="space-y-6 animate-in fade-in duration-200">
                 <div className="text-center space-y-2">
@@ -199,7 +243,9 @@ export default function OnboardingPage() {
                     dir="ltr"
                     className="text-right"
                     helperText="هيوصلك إشعار فوري وتفاصيل العميل كاملة أول ما يطلب"
-                    startIcon={<MessageCircle className="w-4 h-4 text-emerald-500" />}
+                    startIcon={
+                      <MessageCircle className="w-4 h-4 text-emerald-500" />
+                    }
                   />
 
                   <Input
@@ -225,7 +271,13 @@ export default function OnboardingPage() {
                   </Button>
                   <Button
                     size="lg"
-                    onClick={() => setCurrentStep(3)}
+                    onClick={() => {
+                      if (!whatsapp.trim()) {
+                        toast.error("يرجى إدخال رقم واتساب")
+                        return
+                      }
+                      setCurrentStep(3)
+                    }}
                     className="flex-1 font-bold shadow-lg shadow-primary/20"
                   >
                     <span>التالي: إضافة أول منتج</span>
@@ -235,7 +287,7 @@ export default function OnboardingPage() {
               </div>
             )}
 
-            {/* Step 3: إضافة أول منتج */}
+            {/* Step 3: First product */}
             {currentStep === 3 && (
               <div className="space-y-6 animate-in fade-in duration-200">
                 <div className="text-center space-y-2">
@@ -279,15 +331,38 @@ export default function OnboardingPage() {
                     />
                   </div>
 
-                  {/* رفع الصورة المبدئية */}
-                  <div className="border-2 border-dashed border-border rounded-2xl p-6 text-center bg-muted/20 hover:border-primary cursor-pointer transition-colors">
-                    <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-xs font-bold text-foreground">
-                      ارفع صورة المنتج (اختياري الآن)
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      تقدر تضيف صور تانية من لوحة التحكم في أي وقت
-                    </p>
+                  {/* Real image upload */}
+                  <div>
+                    <label
+                      htmlFor="onboarding-product-image"
+                      className="block border-2 border-dashed border-border rounded-2xl p-6 text-center bg-muted/20 hover:border-primary cursor-pointer transition-colors"
+                    >
+                      {productImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={productImage}
+                          alt="معاينة المنتج"
+                          className="w-24 h-24 object-cover rounded-xl mx-auto mb-2 border border-border"
+                        />
+                      ) : (
+                        <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                      )}
+                      <p className="text-xs font-bold text-foreground">
+                        {productImage
+                          ? "اضغط لتغيير الصورة المحددة"
+                          : "ارفع صورة المنتج من جهازك (اختياري الآن)"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        PNG, JPG, WEBP حتى 5 ميجابايت
+                      </p>
+                    </label>
+                    <input
+                      id="onboarding-product-image"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
                   </div>
                 </div>
 
@@ -301,7 +376,8 @@ export default function OnboardingPage() {
                   </Button>
                   <Button
                     size="lg"
-                    onClick={() => setCurrentStep(4)}
+                    onClick={handleFinishOnboarding}
+                    isLoading={loading}
                     className="flex-1 font-bold shadow-xl shadow-primary/25 bg-primary text-primary-foreground"
                   >
                     <span>إنهاء وتجهيز المتجر! 🎉</span>
@@ -311,7 +387,7 @@ export default function OnboardingPage() {
               </div>
             )}
 
-            {/* Step 4: شاشة الاحتفال والرابط الجاهز */}
+            {/* Step 4: Celebration screen */}
             {currentStep === 4 && (
               <div className="text-center space-y-6 animate-in zoom-in-95 duration-300 py-4">
                 <div className="w-20 h-20 rounded-3xl bg-primary/10 text-primary flex items-center justify-center mx-auto shadow-inner">
@@ -323,14 +399,15 @@ export default function OnboardingPage() {
                     مبروك! متجرك جاهز للبيع 🎉
                   </h2>
                   <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                    تم إنشاء متجر <strong>"{storeName}"</strong> بنجاح. شارك الرابط الآن في بايو إنستجرام وابدأ في استقبال أوردراتك!
+                    تم إنشاء متجر &ldquo;{storeName}&rdquo; بنجاح. شارك الرابط
+                    الآن في بايو إنستجرام وابدأ في استقبال أوردراتك!
                   </p>
                 </div>
 
-                {/* كارت رابط المتجر للنسخ والمشاركة */}
+                {/* Store link card */}
                 <div className="p-4 rounded-2xl bg-secondary/60 border border-border flex items-center justify-between gap-3 max-w-md mx-auto">
                   <span className="text-sm font-black text-foreground dir-ltr truncate font-mono">
-                    matgarak.com/{storeSlug}
+                    {getStoreDisplayUrl(storeSlug)}
                   </span>
                   <Button
                     size="sm"
@@ -343,17 +420,24 @@ export default function OnboardingPage() {
                   </Button>
                 </div>
 
-                {/* أزرار الإجراءات */}
+                {/* Action buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
-                  <Link href={`/store/${storeSlug}`} target="_blank">
-                    <Button variant="outline" size="lg" className="w-full sm:w-auto font-bold gap-2">
+                  <Link href={getStorePath(storeSlug)} target="_blank">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-full sm:w-auto font-bold gap-2"
+                    >
                       <span>معاينة متجرك كعميل</span>
                       <ExternalLink className="w-4 h-4" />
                     </Button>
                   </Link>
 
                   <Link href="/dashboard">
-                    <Button size="lg" className="w-full sm:w-auto font-bold shadow-xl shadow-primary/25 gap-2">
+                    <Button
+                      size="lg"
+                      className="w-full sm:w-auto font-bold shadow-xl shadow-primary/25 gap-2"
+                    >
                       <span>الدخول للوحة التحكم</span>
                       <ArrowLeft className="w-4 h-4" />
                     </Button>
@@ -361,12 +445,10 @@ export default function OnboardingPage() {
                 </div>
               </div>
             )}
-
           </CardContent>
         </Card>
       </div>
 
-      {/* Footer */}
       <div className="text-center text-xs text-muted-foreground">
         منصة متجرك © 2026 • دعم البراندات والمشاريع الصغيرة
       </div>

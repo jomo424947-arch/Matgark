@@ -2,17 +2,27 @@
 
 import React, { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card"
-import { ArrowLeft, Upload, Plus, Trash2, CheckCircle2, Image as ImageIcon } from "lucide-react"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/Card"
+import { createProductAction } from "@/server/actions/products"
+import { Upload, Plus, Trash2, CheckCircle2 } from "lucide-react"
+import { toast } from "sonner"
 
 export default function NewProductPage() {
+  const router = useRouter()
   const [name, setName] = useState("")
   const [price, setPrice] = useState("")
   const [category, setCategory] = useState("ملابس")
   const [description, setDescription] = useState("")
-  const [hasVariants, setHasVariants] = useState(true)
+  const [image, setImage] = useState<string | null>(null)
   const [variants, setVariants] = useState([
     { size: "S", color: "أسود", stock: "10" },
     { size: "M", color: "أسود", stock: "15" },
@@ -25,22 +35,67 @@ export default function NewProductPage() {
   }
 
   const removeVariant = (index: number) => {
+    if (variants.length <= 1) {
+      toast.error("يجب تحديد خيار مقاس ولون واحد على الأقل")
+      return
+    }
     setVariants(variants.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("حجم الصورة كبير جداً، الحد الأقصى 5 ميجابايت")
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setImage(event.target?.result as string)
+      toast.success("تم اختيار الصورة بنجاح")
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!name.trim() || !price || Number(price) <= 0) {
+      toast.error("يرجى إدخال اسم المنتج وسعر صحيح")
+      return
+    }
+
     setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-      window.location.href = "/dashboard/products"
-    }, 1000)
+
+    const res = await createProductAction({
+      name,
+      price: Number(price),
+      category,
+      description: description.trim() || undefined,
+      image: image || undefined,
+      variants: variants.map((v) => ({
+        size: v.size.trim() || "قياسي",
+        color: v.color.trim() || "افتراضي",
+        stock: Math.max(0, Number(v.stock) || 0),
+      })),
+    })
+
+    setLoading(false)
+
+    if (!res.ok) {
+      toast.error(res.error || "فشل إضافة المنتج")
+      return
+    }
+
+    toast.success("تم حفظ ونشر المنتج في المتجر بنجاح!")
+    router.push("/dashboard/products")
   }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 text-right">
-      
-      {/* الرأس */}
+      {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-border">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-foreground">
@@ -59,8 +114,7 @@ export default function NewProductPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        
-        {/* معلومات المنتج الأساسية */}
+        {/* Basic Information */}
         <Card>
           <CardHeader>
             <CardTitle>البيانات الأساسية</CardTitle>
@@ -84,7 +138,7 @@ export default function NewProductPage() {
                 onChange={(e) => setPrice(e.target.value)}
                 required
                 dir="ltr"
-                className="text-right"
+                className="text-right font-bold"
               />
 
               <div className="space-y-2">
@@ -121,33 +175,58 @@ export default function NewProductPage() {
           </CardContent>
         </Card>
 
-        {/* رفع صور المنتج */}
+        {/* Product Image Upload */}
         <Card>
           <CardHeader>
-            <CardTitle>صور المنتج</CardTitle>
-            <CardDescription>الصور الواضحة بتزود المبيعات بنسبة 80%</CardDescription>
+            <CardTitle>صورة المنتج</CardTitle>
+            <CardDescription>
+              الصور الواضحة بتزود المبيعات بنسبة 80%
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="border-2 border-dashed border-border rounded-3xl p-8 text-center hover:border-primary/60 transition-colors cursor-pointer bg-muted/20">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4">
-                <Upload className="w-8 h-8" />
-              </div>
+            <label
+              htmlFor="new-product-file"
+              className="block border-2 border-dashed border-border rounded-3xl p-8 text-center hover:border-primary/60 transition-colors cursor-pointer bg-muted/20"
+            >
+              {image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={image}
+                  alt="معاينة المنتج"
+                  className="w-32 h-32 object-cover rounded-2xl mx-auto mb-4 border border-border"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4">
+                  <Upload className="w-8 h-8" />
+                </div>
+              )}
               <h4 className="text-sm font-bold text-foreground">
-                اسحب الصور وأفلتها هنا، أو اضغط للاختيار من جهازك
+                {image
+                  ? "اضغط لتغيير الصورة المحددة"
+                  : "اضغط لاختيار صورة المنتج من جهازك"}
               </h4>
               <p className="text-xs text-muted-foreground mt-1">
-                PNG, JPG, WEBP حتى 5 ميجابايت (تقدر ترفع حتى 5 صور للمنتج)
+                PNG, JPG, WEBP حتى 5 ميجابايت
               </p>
-            </div>
+            </label>
+            <input
+              id="new-product-file"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleImageChange}
+              className="hidden"
+            />
           </CardContent>
         </Card>
 
-        {/* المقاسات والألوان والمخزون */}
+        {/* Variants */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>المقاسات والألوان (Variants)</CardTitle>
-              <CardDescription>حدد المقاسات وكمية المخزون المتاحة</CardDescription>
+              <CardDescription>
+                حدد المقاسات وكمية المخزون المتاحة
+              </CardDescription>
             </div>
             <Button
               type="button"
@@ -176,7 +255,7 @@ export default function NewProductPage() {
                       value={v.size}
                       onChange={(e) => {
                         const newV = [...variants]
-                        newV[idx].size = e.target.value
+                        newV[idx]!.size = e.target.value
                         setVariants(newV)
                       }}
                       className="w-full h-10 px-3 rounded-xl border border-input bg-background text-sm text-center font-bold"
@@ -192,7 +271,7 @@ export default function NewProductPage() {
                       value={v.color}
                       onChange={(e) => {
                         const newV = [...variants]
-                        newV[idx].color = e.target.value
+                        newV[idx]!.color = e.target.value
                         setVariants(newV)
                       }}
                       className="w-full h-10 px-3 rounded-xl border border-input bg-background text-sm text-center font-bold"
@@ -208,7 +287,7 @@ export default function NewProductPage() {
                       value={v.stock}
                       onChange={(e) => {
                         const newV = [...variants]
-                        newV[idx].stock = e.target.value
+                        newV[idx]!.stock = e.target.value
                         setVariants(newV)
                       }}
                       className="w-full h-10 px-3 rounded-xl border border-input bg-background text-sm text-center font-bold dir-ltr"
@@ -229,7 +308,7 @@ export default function NewProductPage() {
           </CardContent>
         </Card>
 
-        {/* زر الحفظ */}
+        {/* Action Buttons */}
         <div className="flex items-center justify-end gap-3 pt-4">
           <Link href="/dashboard/products">
             <Button variant="outline" size="lg">
@@ -246,9 +325,7 @@ export default function NewProductPage() {
             <span>حفظ ونشر في المتجر</span>
           </Button>
         </div>
-
       </form>
     </div>
   )
 }
-

@@ -1,13 +1,18 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> {
   variant?: "primary" | "secondary" | "outline" | "ghost" | "danger"
   size?: "sm" | "md" | "lg" | "icon"
   isLoading?: boolean
+  href?: string
+  target?: string
+  rel?: string
+  onClick?: React.MouseEventHandler<HTMLButtonElement | HTMLAnchorElement>
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -19,6 +24,11 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       isLoading = false,
       disabled,
       children,
+      href,
+      target,
+      rel,
+      onClick,
+      type = "button",
       ...props
     },
     ref
@@ -46,11 +56,35 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       icon: "h-10 w-10 rounded-xl",
     }
 
+    const composedClassName = cn(
+      baseStyles,
+      variants[variant],
+      sizes[size],
+      disabled && "opacity-50 pointer-events-none",
+      className
+    )
+
+    if (href) {
+      return (
+        <Link
+          href={href}
+          target={target}
+          rel={rel}
+          onClick={onClick}
+          className={composedClassName}
+        >
+          {children}
+        </Link>
+      )
+    }
+
     return (
       <button
         ref={ref}
+        type={type}
         disabled={disabled || isLoading}
-        className={cn(baseStyles, variants[variant], sizes[size], className)}
+        onClick={onClick as React.MouseEventHandler<HTMLButtonElement>}
+        className={composedClassName}
         {...props}
       >
         {isLoading && (
@@ -82,4 +116,3 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 )
 
 Button.displayName = "Button"
-

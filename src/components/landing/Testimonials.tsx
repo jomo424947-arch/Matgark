@@ -66,7 +66,7 @@ export function Testimonials() {
                 </div>
 
                 <p className="text-sm text-foreground/80 leading-relaxed italic">
-                  "{rev.comment}"
+                  &ldquo;{rev.comment}&rdquo;
                 </p>
 
                 <div className="pt-4 border-t border-border flex items-center gap-3">
