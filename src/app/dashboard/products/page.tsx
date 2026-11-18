@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/Button"
 import { Card, CardContent } from "@/components/ui/Card"
@@ -28,6 +28,7 @@ import { toast } from "sonner"
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
 
@@ -37,23 +38,31 @@ export default function ProductsPage() {
   const [editName, setEditName] = useState("")
   const [editPrice, setEditPrice] = useState("")
   const [editCategory, setEditCategory] = useState("")
+  const [editDescription, setEditDescription] = useState("")
+  const [editImage, setEditImage] = useState<string | undefined>(undefined)
   const [editVariants, setEditVariants] = useState<
     { id?: string; size: string; color: string; stock: number }[]
   >([])
   const [isSaving, setIsSaving] = useState(false)
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null)
 
-  const loadData = () => {
-    getMerchantDashboardDataAction()
-      .then((data) => {
-        setProducts(data.products)
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    setLoadError(false)
+    try {
+      const data = await getMerchantDashboardDataAction()
+      setProducts(data.products ?? [])
+    } catch {
+      setLoadError(true)
+      toast.error("تعذر تحميل المنتجات. حاولي إعادة المحاولة.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    loadData()
-  }, [])
+    void loadData()
+  }, [loadData])
 
   const categories = [
     "all",
@@ -77,6 +86,8 @@ export default function ProductsPage() {
     setEditName(p.name)
     setEditPrice(String(p.price))
     setEditCategory(p.category)
+    setEditDescription(p.description || "")
+    setEditImage(p.image)
     setEditVariants(
       p.variants.map((v) => ({
         id: v.id,
@@ -90,15 +101,32 @@ export default function ProductsPage() {
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingProduct) return
+    if (editName.trim().length < 2 || !editCategory.trim() || !Number.isFinite(Number(editPrice)) || Number(editPrice) <= 0) {
+      toast.error("راجعي الاسم والفئة والسعر قبل الحفظ")
+      return
+    }
+    if (editVariants.length === 0 || editVariants.some((v) => !v.size.trim() || !v.color.trim() || !Number.isInteger(v.stock) || v.stock < 0)) {
+      toast.error("أضيفي خياراً واحداً على الأقل وتأكدي من صحة المقاسات والألوان والمخزون")
+      return
+    }
 
     setIsSaving(true)
-    const res = await updateProductAction(editingProduct.id, {
-      name: editName,
-      price: Number(editPrice),
-      category: editCategory,
-      variants: editVariants,
-    })
-    setIsSaving(false)
+    let res: Awaited<ReturnType<typeof updateProductAction>>
+    try {
+      res = await updateProductAction(editingProduct.id, {
+        name: editName.trim(),
+        price: Number(editPrice),
+        category: editCategory.trim(),
+        description: editDescription.trim(),
+        image: editImage,
+        variants: editVariants,
+      })
+    } catch {
+      toast.error("حدث خطأ أثناء حفظ المنتج. حاولي مرة أخرى.")
+      return
+    } finally {
+      setIsSaving(false)
+    }
 
     if (!res.ok) {
       toast.error(res.error || "فشل حفظ التعديلات")
@@ -111,16 +139,24 @@ export default function ProductsPage() {
   }
 
   const handleDelete = async (id: string, name: string) => {
+    if (deletingProductId) return
     if (!confirm(`هل أنت متأكد من حذف المنتج "${name}"؟`)) return
 
-    const res = await deleteProductAction(id)
-    if (!res.ok) {
-      toast.error(res.error || "فشل حذف المنتج")
-      return
-    }
+    setDeletingProductId(id)
+    try {
+      const res = await deleteProductAction(id)
+      if (!res.ok) {
+        toast.error(res.error || "فشل حذف المنتج")
+        return
+      }
 
-    toast.success("تم حذف المنتج بنجاح")
-    loadData()
+      toast.success("تم حذف المنتج بنجاح")
+      await loadData()
+    } catch {
+      toast.error("حدث خطأ أثناء حذف المنتج. حاولي مرة أخرى.")
+    } finally {
+      setDeletingProductId(null)
+    }
   }
 
   return (
@@ -201,6 +237,13 @@ export default function ProductsPage() {
                       جاري تحميل المنتجات...
                     </td>
                   </tr>
+                ) : loadError ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8">
+                      <p className="text-sm text-destructive mb-3">تعذر تحميل المنتجات من بيانات المتجر.</p>
+                      <Button type="button" variant="outline" size="sm" onClick={loadData}>إعادة المحاولة</Button>
+                    </td>
+                  </tr>
                 ) : filteredProducts.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-8 text-muted-foreground">
@@ -273,6 +316,7 @@ export default function ProductsPage() {
                               type="button"
                               onClick={() => setViewingProduct(p)}
                               title="معاينة تفاصيل المنتج"
+                              aria-label={`معاينة ${p.name}`}
                               className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
                             >
                               <Eye className="w-4 h-4" />
@@ -281,7 +325,9 @@ export default function ProductsPage() {
                               type="button"
                               onClick={() => openEditModal(p)}
                               title="تعديل المنتج والمخزون"
-                              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+                              aria-label={`تعديل ${p.name}`}
+                              disabled={Boolean(deletingProductId) || isSaving}
+                              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-50"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
@@ -289,7 +335,9 @@ export default function ProductsPage() {
                               type="button"
                               onClick={() => handleDelete(p.id, p.name)}
                               title="حذف المنتج"
-                              className="p-2 rounded-lg hover:bg-destructive/10 text-destructive"
+                              aria-label={`حذف ${p.name}`}
+                              disabled={Boolean(deletingProductId) || isSaving}
+                              className="p-2 rounded-lg hover:bg-destructive/10 text-destructive disabled:opacity-50"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -308,14 +356,15 @@ export default function ProductsPage() {
       {/* View Modal */}
       {viewingProduct && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card rounded-3xl border border-border max-w-md w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
+          <div role="dialog" aria-modal="true" aria-labelledby="view-product-title" className="bg-card rounded-3xl border border-border max-w-md w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-border">
-              <h3 className="text-base font-bold text-foreground">
+              <h3 id="view-product-title" className="text-base font-bold text-foreground">
                 تفاصيل المنتج
               </h3>
               <button
                 type="button"
                 onClick={() => setViewingProduct(null)}
+                aria-label="إغلاق تفاصيل المنتج"
                 className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
               >
                 <X className="w-5 h-5" />
@@ -342,6 +391,12 @@ export default function ProductsPage() {
                 {formatPrice(viewingProduct.price)}
               </div>
             </div>
+
+            {viewingProduct.description && (
+              <p className="rounded-xl bg-muted/30 p-3 text-sm leading-6 text-foreground/80 text-right">
+                {viewingProduct.description}
+              </p>
+            )}
 
             <div className="space-y-2 text-xs border-t border-border pt-3">
               <div className="flex justify-between text-muted-foreground">
@@ -398,15 +453,17 @@ export default function ProductsPage() {
       {/* Edit Modal */}
       {editingProduct && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card rounded-3xl border border-border max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+          <div role="dialog" aria-modal="true" aria-labelledby="edit-product-title" className="bg-card rounded-3xl border border-border max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-border">
-              <h3 className="text-base font-bold text-foreground">
+              <h3 id="edit-product-title" className="text-base font-bold text-foreground">
                 تعديل بيانات المنتج والمخزون
               </h3>
               <button
                 type="button"
                 onClick={() => setEditingProduct(null)}
-                className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
+                aria-label="إغلاق تعديل المنتج"
+                disabled={isSaving}
+                className="p-1 rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-50"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -418,12 +475,16 @@ export default function ProductsPage() {
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
                 required
+                minLength={2}
+                maxLength={120}
               />
 
               <div className="grid grid-cols-2 gap-3">
                 <Input
                   label="السعر (ج.م) *"
                   type="number"
+                  min="0.01"
+                  step="0.01"
                   value={editPrice}
                   onChange={(e) => setEditPrice(e.target.value)}
                   required
@@ -437,6 +498,50 @@ export default function ProductsPage() {
                   onChange={(e) => setEditCategory(e.target.value)}
                   required
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-foreground/90">وصف المنتج</label>
+                <textarea
+                  rows={3}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  maxLength={1000}
+                  className="w-full rounded-xl border border-input bg-background p-3 text-sm text-right"
+                  placeholder="اكتبي وصفاً مختصراً للمنتج"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-foreground/90">صورة المنتج</label>
+                {editImage && editImage.length > 5 && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={editImage} alt={editName || "صورة المنتج"} className="h-24 w-24 rounded-xl border border-border object-cover" />
+                )}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    if (!file) return
+                    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+                      toast.error("اختاري صورة PNG أو JPG أو WEBP فقط")
+                      event.target.value = ""
+                      return
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast.error("حجم الصورة يجب ألا يتجاوز 5 ميجابايت")
+                      event.target.value = ""
+                      return
+                    }
+                    const reader = new FileReader()
+                    reader.onload = () => setEditImage(typeof reader.result === "string" ? reader.result : undefined)
+                    reader.onerror = () => toast.error("تعذر قراءة الصورة")
+                    reader.readAsDataURL(file)
+                  }}
+                  className="block w-full text-sm text-muted-foreground file:ml-3 file:rounded-lg file:border file:border-input file:bg-muted file:px-3 file:py-2"
+                />
+                <p className="text-xs text-muted-foreground">PNG أو JPG أو WEBP، بحد أقصى 5 ميجابايت.</p>
               </div>
 
               {/* Variants Stock editor */}
@@ -501,11 +606,13 @@ export default function ProductsPage() {
                       />
                       <button
                         type="button"
-                        onClick={() =>
-                          setEditVariants(
-                            editVariants.filter((_, i) => i !== idx)
-                          )
-                        }
+                        onClick={() => {
+                          if (editVariants.length <= 1) {
+                            toast.error("يجب الاحتفاظ بخيار واحد على الأقل")
+                            return
+                          }
+                          setEditVariants(editVariants.filter((_, i) => i !== idx))
+                        }}
                         className="p-2 text-destructive hover:bg-destructive/10 rounded-lg"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -523,7 +630,7 @@ export default function ProductsPage() {
                 >
                   إلغاء
                 </Button>
-                <Button type="submit" isLoading={isSaving} className="font-bold">
+                <Button type="submit" isLoading={isSaving} disabled={Boolean(deletingProductId)} className="font-bold">
                   <CheckCircle2 className="w-4 h-4 ml-1.5" />
                   <span>حفظ التعديلات</span>
                 </Button>

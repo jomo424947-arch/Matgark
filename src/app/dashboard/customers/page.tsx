@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/Button"
 import { Card, CardContent } from "@/components/ui/Card"
 import { getMerchantDashboardDataAction } from "@/server/actions/store"
@@ -14,6 +14,7 @@ import {
   Download,
   ShoppingBag,
   MapPin,
+  RefreshCw,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -21,23 +22,33 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [store, setStore] = useState<Store | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
 
-  useEffect(() => {
-    getMerchantDashboardDataAction()
-      .then((data) => {
-        setCustomers(data.customers)
-        setStore(data.store)
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+  const loadCustomers = useCallback(async () => {
+    setLoading(true)
+    setLoadError(false)
+    try {
+      const data = await getMerchantDashboardDataAction()
+      setCustomers(data.customers ?? [])
+      setStore(data.store)
+    } catch {
+      setLoadError(true)
+      toast.error("تعذر تحميل بيانات العملاء. حاولي إعادة المحاولة.")
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  const filteredCustomers = customers.filter(
-    (c) =>
-      c.name.includes(searchTerm) ||
-      c.phone.includes(searchTerm) ||
-      c.city.includes(searchTerm)
+  useEffect(() => {
+    void loadCustomers()
+  }, [loadCustomers])
+
+  const normalizedSearch = searchTerm.trim().toLocaleLowerCase("ar")
+  const filteredCustomers = customers.filter((customer) =>
+    customer.name.toLocaleLowerCase("ar").includes(normalizedSearch) ||
+    customer.phone.includes(normalizedSearch) ||
+    customer.city.toLocaleLowerCase("ar").includes(normalizedSearch)
   )
 
   const totalCompletedOrders = customers.reduce(
@@ -53,20 +64,22 @@ export default function CustomersPage() {
     }
 
     const headers = ["الاسم", "رقم الموبايل", "المحافظة", "عدد الأوردرات", "إجمالي المشتريات", "آخر أوردر", "التصنيف"]
-    const rows = customers.map((c) => [
-      `"${c.name}"`,
-      `"${c.phone}"`,
-      `"${c.city}"`,
-      c.totalOrders,
-      c.totalSpent,
-      `"${c.lastOrder}"`,
-      `"${c.tag}"`,
+    const escapeCsvCell = (value: string | number) =>
+      `"${String(value).replace(/"/g, '""')}"`
+    const rows = customers.map((customer) => [
+      customer.name,
+      customer.phone,
+      customer.city,
+      customer.totalOrders,
+      customer.totalSpent,
+      customer.lastOrder,
+      customer.tag,
     ])
 
-    // UTF-8 BOM for Arabic Excel compatibility
+    // UTF-8 BOM for Arabic Excel compatibility; quote and escape every field.
     const csvContent =
       "\uFEFF" +
-      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
+      [headers, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n")
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
@@ -79,12 +92,12 @@ export default function CustomersPage() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 
     toast.success("تم تصدير ملف العملاء بنجاح!")
   }
 
-  const storeName = store?.name || "متجر كايرو كوتور"
+  const storeName = store?.name || "متجرك"
 
   return (
     <div className="space-y-6 text-right">
@@ -103,12 +116,24 @@ export default function CustomersPage() {
           variant="outline"
           size="sm"
           onClick={handleExportCsv}
+          disabled={loading || loadError || customers.length === 0}
           className="font-bold gap-2"
         >
           <Download className="w-4 h-4" />
-          <span>تصدير القائمة (Excel)</span>
+          <span>تصدير القائمة (CSV)</span>
         </Button>
       </div>
+
+      {loadError && (
+        <Card>
+          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p role="alert" className="text-sm text-muted-foreground">تعذر تحميل بيانات العملاء. لم يتم عرض أرقام افتراضية.</p>
+            <Button type="button" variant="outline" size="sm" onClick={() => void loadCustomers()} className="gap-2">
+              <RefreshCw className="w-4 h-4" /> إعادة المحاولة
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Dynamic Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -119,7 +144,7 @@ export default function CustomersPage() {
             </div>
             <div>
               <div className="text-xl font-black text-foreground font-cairo">
-                {customers.length} عميل
+                {loading ? "..." : loadError ? "—" : `${customers.length} عميل`}
               </div>
               <div className="text-xs text-muted-foreground">
                 إجمالي العملاء المسجلين
@@ -135,10 +160,10 @@ export default function CustomersPage() {
             </div>
             <div>
               <div className="text-xl font-black text-foreground font-cairo">
-                {totalCompletedOrders} أوردر
+                {loading ? "..." : loadError ? "—" : `${totalCompletedOrders} أوردر`}
               </div>
               <div className="text-xs text-muted-foreground">
-                إجمالي الأوردرات المكتملة
+                إجمالي الأوردرات المسجلة
               </div>
             </div>
           </div>
@@ -151,7 +176,7 @@ export default function CustomersPage() {
             </div>
             <div>
               <div className="text-xl font-black text-foreground font-cairo">
-                {uniqueCitiesCount} محافظات
+                {loading ? "..." : loadError ? "—" : `${uniqueCitiesCount} محافظات`}
               </div>
               <div className="text-xs text-muted-foreground">
                 مناطق وصول طلبات متجرك
@@ -196,10 +221,10 @@ export default function CustomersPage() {
               <tbody className="divide-y divide-border/60">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-muted-foreground">
-                      جاري تحميل العملاء...
-                    </td>
+                    <td colSpan={7} className="text-center py-8 text-muted-foreground">جاري تحميل العملاء...</td>
                   </tr>
+                ) : loadError ? (
+                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">تعذر تحميل بيانات العملاء. استخدمي زر إعادة المحاولة بالأعلى.</td></tr>
                 ) : filteredCustomers.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-8 text-muted-foreground">

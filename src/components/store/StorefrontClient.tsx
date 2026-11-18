@@ -1,11 +1,10 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import Link from "next/link"
 import { useCartStore } from "@/stores/cartStore"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
-import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { buildWhatsAppLink } from "@/lib/whatsapp"
 import { placeOrderAction } from "@/server/actions/orders"
 import { formatPrice } from "@/lib/utils"
@@ -25,12 +24,56 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+export type StorefrontPreviewTheme = {
+  secondaryColor: string
+  fontFamily: "Cairo" | "Tajawal" | "Almarai" | "Amiri"
+  borderStyle: "sharp" | "medium" | "rounded"
+  productLayout: "grid" | "list" | "large"
+  mobileColumns: 1 | 2
+  announcementText: string
+  promoText: string
+  promoCards: { id: string; title: string; description: string; buttonText: string; destination: string }[]
+  sections: { header: boolean; announcement: boolean; hero: boolean; products: boolean; footer: boolean }
+  sectionOrder: ("header" | "announcement" | "hero" | "products" | "footer")[]
+  banners: { id: string; imageUrl: string; title: string; buttonText: string; destination: string; startsAt: string; endsAt: string }[]
+}
+
+function isSafePromotionHref(value: string): boolean {
+  return /^https:\/\//i.test(value) || (value.startsWith("/") && !value.startsWith("//"))
+}
+
+function hexToHslTriplet(hex: string): string {
+  const clean = hex.replace("#", "")
+  const r = parseInt(clean.slice(0, 2), 16) / 255
+  const g = parseInt(clean.slice(2, 4), 16) / 255
+  const b = parseInt(clean.slice(4, 6), 16) / 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const delta = max - min
+  let h = 0
+  let s = 0
+  const l = (max + min) / 2
+  if (delta !== 0) {
+    s = delta / (1 - Math.abs(2 * l - 1))
+    if (max === r) h = ((g - b) / delta) % 6
+    else if (max === g) h = (b - r) / delta + 2
+    else h = (r - g) / delta + 4
+    h *= 60
+    if (h < 0) h += 360
+  }
+  return `${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`
+}
+
 export function StorefrontClient({
   store,
   products,
+  previewMode = false,
+  previewTheme,
 }: {
   store: Store
   products: Product[]
+  previewMode?: boolean
+  previewTheme?: StorefrontPreviewTheme
 }) {
   const {
     isOpen,
@@ -48,6 +91,26 @@ export function StorefrontClient({
   const cartItems = getItemsByStore(store.slug)
   const cartSubtotal = totalAmount(store.slug)
   const cartCount = totalItems(store.slug)
+  const [previewClock, setPreviewClock] = useState<number | null>(null)
+  useEffect(() => { if (previewMode) setPreviewClock(Date.now()) }, [previewMode])
+  const borderRadius = previewTheme?.borderStyle === "sharp" ? "0.25rem" : previewTheme?.borderStyle === "medium" ? "0.75rem" : "1.5rem"
+  const storefrontStyle = ({
+    "--primary": hexToHslTriplet(store.themeColor),
+    "--secondary": hexToHslTriplet(previewTheme?.secondaryColor || "#F3ECE2"),
+    "--radius": borderRadius,
+    fontFamily: !previewTheme || previewTheme.fontFamily === "Cairo" ? "var(--font-cairo), Cairo, sans-serif" : previewTheme.fontFamily === "Tajawal" ? "var(--font-tajawal), Tajawal, sans-serif" : previewTheme.fontFamily === "Almarai" ? "var(--font-almarai), Almarai, sans-serif" : "var(--font-amiri), Amiri, serif",
+  } as React.CSSProperties)
+  const previewBanners = previewTheme?.banners.filter((banner) => {
+    if (previewClock === null) return true
+    const start = banner.startsAt ? new Date(banner.startsAt).getTime() : null
+    const end = banner.endsAt ? new Date(banner.endsAt).getTime() : null
+    return (start === null || (Number.isFinite(start) && start <= previewClock)) && (end === null || (Number.isFinite(end) && end >= previewClock))
+  }) ?? []
+  const productGridClass = previewTheme?.productLayout === "list"
+    ? "grid grid-cols-1 gap-4"
+    : previewTheme?.productLayout === "large"
+      ? "grid grid-cols-1 sm:grid-cols-2 gap-7"
+      : `grid grid-cols-1 ${previewTheme?.mobileColumns === 2 ? "min-[360px]:grid-cols-2" : ""} sm:grid-cols-2 lg:grid-cols-4 gap-6`
 
   // Modal selection state
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
@@ -96,7 +159,7 @@ export function StorefrontClient({
   }
 
   const handleAddToCart = () => {
-    if (!selectedProduct) return
+    if (!selectedProduct || previewMode) return
     const variant = getSelectedVariant()
 
     if (variant && variant.stock <= 0) {
@@ -122,7 +185,7 @@ export function StorefrontClient({
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (cartItems.length === 0) return
+    if (previewMode || cartItems.length === 0) return
 
     setIsSubmitting(true)
 
@@ -172,9 +235,9 @@ export function StorefrontClient({
     : []
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col text-right">
+    <div className="min-h-screen bg-background text-foreground flex flex-col text-right" style={storefrontStyle} data-storefront-preview={previewMode ? "true" : undefined}>
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-card/85 backdrop-blur-xl border-b border-border">
+      {(!previewTheme || previewTheme.sections.header) && <header style={{ order: previewTheme ? previewTheme.sectionOrder.indexOf("header") : 0 }} className="sticky top-0 z-30 bg-card/85 backdrop-blur-xl border-b border-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {store.logoUrl ? (
@@ -205,8 +268,6 @@ export function StorefrontClient({
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeToggle />
-
             {/* WhatsApp Contact */}
             <a
               href={buildWhatsAppLink(
@@ -221,16 +282,23 @@ export function StorefrontClient({
               <span>تواصل معنا</span>
             </a>
 
+            {!previewMode && (
+              <Link href={`/${store.slug}/cart`} className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2.5 text-xs font-bold text-foreground hover:bg-muted" aria-label="الانتقال إلى صفحة السلة">
+                <ShoppingCart className="h-4 w-4" />
+                <span className="hidden sm:inline">عرض السلة</span>
+              </Link>
+            )}
             {/* Cart Trigger Button */}
             <button
               type="button"
-              onClick={toggleCart}
+              onClick={previewMode ? undefined : toggleCart}
+              disabled={previewMode}
               className="relative flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary text-primary-foreground font-bold text-xs sm:text-sm shadow-lg shadow-primary/25 hover:scale-105 active:scale-95 transition-all"
               style={{ backgroundColor: store.themeColor }}
             >
               <ShoppingCart className="w-4 h-4" />
               <span>السلة</span>
-              {cartCount > 0 && (
+              {!previewMode && cartCount > 0 && (
                 <span className="w-5 h-5 rounded-full bg-white text-foreground text-xs font-black flex items-center justify-center -mr-1 shadow-sm">
                   {cartCount}
                 </span>
@@ -238,22 +306,43 @@ export function StorefrontClient({
             </button>
           </div>
         </div>
-      </header>
+      </header>}
 
-      {/* Free Delivery Banner */}
-      {store.freeAbove !== null && (
-        <div className="bg-primary/10 border-b border-primary/20 py-2 px-4 text-center text-xs font-bold text-primary flex items-center justify-center gap-2">
+      {/* Free Delivery Banner / announcement bar */}
+      {(!previewTheme || previewTheme.sections.announcement) && (previewTheme?.announcementText || store.freeAbove !== null) && (
+        <div style={{ order: previewTheme ? previewTheme.sectionOrder.indexOf("announcement") : 1 }} className="bg-primary/10 border-b border-primary/20 py-2 px-4 text-center text-xs font-bold text-primary flex items-center justify-center gap-2">
           <Truck className="w-4 h-4" />
-          <span>
-            {isFreeDelivery
-              ? "🎉 مبروك! طلبك مؤهل للتوصيل المجاني"
-              : `أضف منتجات بقيمة ${formatPrice(store.freeAbove - cartSubtotal)} واحصل على توصيل مجاني!`}
-          </span>
+          <span>{previewTheme?.announcementText || (isFreeDelivery ? "🎉 مبروك! طلبك مؤهل للتوصيل المجاني" : `أضف منتجات بقيمة ${formatPrice((store.freeAbove ?? 0) - cartSubtotal)} واحصل على توصيل مجاني!`)}</span>
         </div>
       )}
 
+      {previewTheme?.sections.announcement && previewTheme.promoText && <div style={{ order: previewTheme.sectionOrder.indexOf("announcement") + 0.1, backgroundColor: previewTheme.secondaryColor, color: store.themeColor }} className="px-4 py-3 text-center text-sm font-bold">{previewTheme.promoText}</div>}
+      {previewTheme?.promoCards.length ? (
+        <section aria-label="العروض الترويجية" style={{ order: previewTheme.sectionOrder.indexOf("announcement") + 0.2 }} className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-3 px-4 pt-4 sm:grid-cols-2 lg:grid-cols-3">
+          {previewTheme.promoCards.slice(0, 3).map((card) => (
+            <article key={card.id} className="flex min-h-32 flex-col items-start justify-between gap-3 border border-border bg-card p-5 shadow-sm" style={{ borderRadius, backgroundColor: previewTheme.secondaryColor }}>
+              <div><h2 className="font-black text-foreground">{card.title || "عنوان العرض"}</h2>{card.description && <p className="mt-1 text-sm leading-6 text-muted-foreground">{card.description}</p>}</div>
+              {card.buttonText && (isSafePromotionHref(card.destination) ? <a href={card.destination} onClick={(event) => event.preventDefault()} className="inline-flex rounded-lg px-3 py-2 text-xs font-bold text-white" style={{ backgroundColor: store.themeColor }}>{card.buttonText}</a> : <span className="inline-flex rounded-lg px-3 py-2 text-xs font-bold text-white" style={{ backgroundColor: store.themeColor }}>{card.buttonText}</span>)}
+            </article>
+          ))}
+        </section>
+      ) : null}
+      {previewTheme?.sections.hero !== false && previewBanners.length ? (
+        <section style={{ order: previewTheme ? previewTheme.sectionOrder.indexOf("hero") : 2 }} className="mx-auto w-full max-w-6xl px-4 pt-6">
+          {previewBanners.slice(0, 5).map((banner) => (
+            <div key={banner.id} className="relative mb-3 min-h-32 overflow-hidden rounded-[var(--radius)] bg-muted" style={{ borderRadius }}>
+              {banner.imageUrl ? <img src={banner.imageUrl} alt={banner.title || "بانر المتجر"} className="absolute inset-0 h-full w-full object-cover" /> : null}
+              <div className="relative z-10 flex min-h-32 flex-col items-start justify-center gap-2 bg-black/35 p-5 text-white">
+                {banner.title && <h2 className="text-xl font-black">{banner.title}</h2>}
+                {banner.buttonText && <span className="rounded-xl bg-white px-4 py-2 text-xs font-bold text-black">{banner.buttonText}</span>}
+              </div>
+            </div>
+          ))}
+        </section>
+      ) : null}
+
       {/* Main Content: Products */}
-      <main className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 py-10 w-full space-y-8">
+      {(!previewTheme || previewTheme.sections.products) && <main style={{ order: previewTheme ? previewTheme.sectionOrder.indexOf("products") : 3 }} className="flex-1 max-w-6xl mx-auto px-4 sm:px-6 py-10 w-full space-y-8">
         <div className="space-y-1">
           <h2 className="text-2xl font-black text-foreground">
             كل المنتجات المتاحة
@@ -274,15 +363,15 @@ export function StorefrontClient({
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className={productGridClass}>
             {products.map((p) => {
               const isOutOfStock = p.stock <= 0
               return (
                 <div
                   key={p.id}
-                  className="group bg-card rounded-3xl border border-border/80 overflow-hidden shadow-sm hover:shadow-xl hover:border-primary/40 transition-all duration-300 flex flex-col justify-between"
+                  className={`group bg-card border border-border/80 overflow-hidden shadow-sm hover:shadow-xl hover:border-primary/40 transition-all duration-300 flex ${previewTheme?.productLayout === "list" ? "flex-row items-center" : "flex-col justify-between"}`} style={{ borderRadius }}
                 >
-                  <div className="aspect-square bg-gradient-to-br from-secondary/60 to-muted flex items-center justify-center text-6xl relative group-hover:scale-105 transition-transform duration-300">
+                  <div className={`${previewTheme?.productLayout === "list" ? "w-28 h-28 shrink-0" : "aspect-square"} bg-gradient-to-br from-secondary/60 to-muted flex items-center justify-center text-6xl relative overflow-hidden`}>
                     {p.image && p.image.length > 5 ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -305,9 +394,9 @@ export function StorefrontClient({
 
                   <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                     <div>
-                      <h3 className="text-base font-bold text-foreground line-clamp-1">
+                      <Link href={`/${store.slug}/product/${p.id}`} className="block text-base font-bold text-foreground line-clamp-1 hover:underline" tabIndex={previewMode ? -1 : 0} aria-label={`عرض تفاصيل ${p.name}`} onClick={previewMode ? (event) => event.preventDefault() : undefined}>
                         {p.name}
-                      </h3>
+                      </Link>
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
                         <span>المقاسات:</span>
                         <span className="font-semibold text-foreground/80">
@@ -322,13 +411,13 @@ export function StorefrontClient({
                       </span>
                       <Button
                         size="sm"
-                        disabled={isOutOfStock}
-                        onClick={() => openProductModal(p)}
+                        disabled={isOutOfStock || previewMode}
+                        onClick={() => { if (!previewMode) openProductModal(p) }}
                         className="font-bold text-xs rounded-xl"
                         style={{ backgroundColor: store.themeColor }}
                       >
                         <Plus className="w-3.5 h-3.5 ml-1" />
-                        <span>{isOutOfStock ? "خلصان" : "أضف للسلة"}</span>
+                        <span>{previewMode ? "معاينة" : isOutOfStock ? "خلصان" : "أضف للسلة"}</span>
                       </Button>
                     </div>
                   </div>
@@ -337,10 +426,11 @@ export function StorefrontClient({
             })}
           </div>
         )}
-      </main>
+      </main>}
+      {(!previewTheme || previewTheme.sections.footer) && <footer style={{ order: previewTheme ? previewTheme.sectionOrder.indexOf("footer") : 4 }} className="border-t border-border px-4 py-6 text-center text-xs text-muted-foreground">{store.name} — جميع الحقوق محفوظة</footer>}
 
       {/* Quick Select Modal */}
-      {selectedProduct && (
+      {!previewMode && selectedProduct && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-card rounded-3xl border border-border max-w-sm w-full p-6 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-border">
@@ -464,7 +554,7 @@ export function StorefrontClient({
       )}
 
       {/* Cart Drawer */}
-      {isOpen && (
+      {!previewMode && isOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-start">
           <div className="bg-card w-full max-w-md h-full flex flex-col justify-between p-6 shadow-2xl animate-in slide-in-from-left duration-200 border-l border-border">
             {/* Drawer Header */}

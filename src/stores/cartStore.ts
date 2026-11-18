@@ -3,7 +3,9 @@ import { persist } from "zustand/middleware"
 
 export interface CartItem {
   id: string
+  storeSlug: string
   productId: string
+  variantId?: string
   name: string
   price: number
   size: string
@@ -12,18 +14,24 @@ export interface CartItem {
   image?: string
 }
 
+export type AddCartItemInput = Omit<CartItem, "id"> & {
+  storeSlug?: string
+}
+
 interface CartStore {
   items: CartItem[]
   isOpen: boolean
-  addItem: (item: Omit<CartItem, "id">) => void
+  addItem: (item: AddCartItemInput) => void
   removeItem: (id: string) => void
   updateQuantity: (id: string, quantity: number) => void
-  clearCart: () => void
+  clearCart: (storeSlug?: string) => void
+  clearStoreCart: (storeSlug: string) => void
   openCart: () => void
   closeCart: () => void
   toggleCart: () => void
-  totalAmount: () => number
-  totalItems: () => number
+  getItemsByStore: (storeSlug: string) => CartItem[]
+  totalAmount: (storeSlug?: string) => number
+  totalItems: (storeSlug?: string) => number
 }
 
 export const useCartStore = create<CartStore>()(
@@ -31,41 +39,102 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       items: [],
       isOpen: false,
+
       addItem: (item) => {
-        const id = `${item.productId}-${item.size}-${item.color}`
+        const storeSlug = item.storeSlug || "cairo-couture"
+        const size = item.size || "قياسي"
+        const color = item.color || "افتراضي"
+        const variantId = item.variantId || "novar"
+        const quantityToAdd = Math.max(1, Math.floor(item.quantity || 1))
+
+        // Compound unique key incorporating storeSlug, productId, variantId, size, and color
+        const id = `${storeSlug}-${item.productId}-${variantId}-${size}-${color}`
         const existing = get().items.find((i) => i.id === id)
 
         if (existing) {
           set({
             items: get().items.map((i) =>
-              i.id === id ? { ...i, quantity: i.quantity + item.quantity } : i
+              i.id === id
+                ? { ...i, quantity: i.quantity + quantityToAdd }
+                : i
             ),
           })
         } else {
-          set({ items: [...get().items, { ...item, id }] })
+          const newItem: CartItem = {
+            ...item,
+            id,
+            storeSlug,
+            size,
+            color,
+            quantity: quantityToAdd,
+          }
+          set({ items: [...get().items, newItem] })
         }
         set({ isOpen: true })
       },
+
       removeItem: (id) => {
         set({ items: get().items.filter((i) => i.id !== id) })
       },
+
       updateQuantity: (id, quantity) => {
-        if (quantity <= 0) {
+        const rounded = Math.floor(quantity)
+        if (rounded <= 0) {
           get().removeItem(id)
           return
         }
         set({
-          items: get().items.map((i) => (i.id === id ? { ...i, quantity } : i)),
+          items: get().items.map((i) =>
+            i.id === id ? { ...i, quantity: rounded } : i
+          ),
         })
       },
-      clearCart: () => set({ items: [] }),
+
+      clearCart: (storeSlug?: string) => {
+        if (storeSlug) {
+          set({ items: get().items.filter((i) => i.storeSlug !== storeSlug) })
+        } else {
+          set({ items: [] })
+        }
+      },
+
+      clearStoreCart: (storeSlug: string) => {
+        set({ items: get().items.filter((i) => i.storeSlug !== storeSlug) })
+      },
+
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
       toggleCart: () => set({ isOpen: !get().isOpen }),
-      totalAmount: () =>
-        get().items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-      totalItems: () =>
-        get().items.reduce((sum, item) => sum + item.quantity, 0),
+
+      getItemsByStore: (storeSlug: string) => {
+        return get().items.filter(
+          (i) => i.storeSlug === storeSlug || (!i.storeSlug && storeSlug === "cairo-couture")
+        )
+      },
+
+      totalAmount: (storeSlug?: string) => {
+        const relevantItems = storeSlug
+          ? get().items.filter(
+              (i) => i.storeSlug === storeSlug || (!i.storeSlug && storeSlug === "cairo-couture")
+            )
+          : get().items
+        return relevantItems.reduce(
+          (sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 0),
+          0
+        )
+      },
+
+      totalItems: (storeSlug?: string) => {
+        const relevantItems = storeSlug
+          ? get().items.filter(
+              (i) => i.storeSlug === storeSlug || (!i.storeSlug && storeSlug === "cairo-couture")
+            )
+          : get().items
+        return relevantItems.reduce(
+          (sum, item) => sum + (Number(item.quantity) || 0),
+          0
+        )
+      },
     }),
     {
       name: "matgarak-cart-storage",

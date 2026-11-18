@@ -5,7 +5,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Logo } from "@/components/ui/Logo"
 import { Button } from "@/components/ui/Button"
-import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { useMerchantStore } from "@/stores/merchantStore"
 import {
   LayoutDashboard,
@@ -19,6 +18,8 @@ import {
   Bell,
   LogOut,
   ChevronLeft,
+  BarChart3,
+  Tag,
 } from "lucide-react"
 
 export default function DashboardLayout({
@@ -34,10 +35,11 @@ export default function DashboardLayout({
 
   const navigation = [
     { name: "الرئيسية", href: "/dashboard", icon: LayoutDashboard },
-    { name: "المنتجات", href: "/products", icon: Package },
-    { name: "الأوردرات", href: "/orders", icon: ShoppingCart, badge: newOrdersCount },
-    { name: "العملاء", href: "/customers", icon: Users },
-    { name: "إعدادات المتجر", href: "/settings", icon: Settings },
+    { name: "المنتجات", href: "/dashboard/products", icon: Package },
+    { name: "الأوردرات", href: "/dashboard/orders", icon: ShoppingCart, badge: newOrdersCount },
+    { name: "العملاء", href: "/dashboard/customers", icon: Users },
+    { name: "الإحصائيات", href: "/dashboard", icon: BarChart3 },
+    { name: "إعدادات المتجر", href: "/dashboard/settings", icon: Settings },
   ]
 
   // Do not wrap the standalone onboarding wizard with the dashboard sidebar
@@ -72,7 +74,9 @@ export default function DashboardLayout({
               matgarak.com/{settings.slug}
             </div>
             <Link
-              href={`/store/${settings.slug}`}
+              href={`/${settings.slug}`}
+              target="_blank"
+              rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-bold pt-1"
             >
               <span>معاينة متجرك</span>
@@ -156,9 +160,8 @@ export default function DashboardLayout({
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeToggle />
             <Link
-              href="/orders"
+              href="/dashboard/orders"
               aria-label="إشعارات الأوردرات الجديدة"
               className="relative w-10 h-10 rounded-xl border border-border/60 bg-background/80 hover:bg-muted flex items-center justify-center text-foreground transition-colors"
             >
@@ -218,7 +221,9 @@ export default function DashboardLayout({
                   )
                 })}
                 <Link
-                  href={`/store/${settings.slug}`}
+                  href={`/${settings.slug}`}
+                  target="_blank"
+                  rel="noreferrer"
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center gap-3 px-4 py-3 rounded-2xl text-base font-bold text-primary hover:bg-muted"
                 >

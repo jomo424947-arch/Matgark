@@ -5,10 +5,10 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Logo } from "@/components/ui/Logo"
 import { Button } from "@/components/ui/Button"
-import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { logoutAction } from "@/server/actions/auth"
 import { getMerchantDashboardDataAction } from "@/server/actions/store"
 import { getStorePath, getStoreDisplayUrl } from "@/lib/reserved-slugs"
+import { toast } from "sonner"
 import type { Store } from "@/types/domain"
 import {
   LayoutDashboard,
@@ -19,9 +19,9 @@ import {
   ExternalLink,
   Menu,
   X,
-  Bell,
   LogOut,
   ChevronLeft,
+  Paintbrush,
 } from "lucide-react"
 
 export default function DashboardLayout({
@@ -33,6 +33,7 @@ export default function DashboardLayout({
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [store, setStore] = useState<Store | null>(null)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -55,15 +56,29 @@ export default function DashboardLayout({
     { name: "المنتجات", href: "/dashboard/products", icon: Package },
     { name: "الأوردرات", href: "/dashboard/orders", icon: ShoppingCart },
     { name: "العملاء", href: "/dashboard/customers", icon: Users },
+    { name: "تخصيص المتجر", href: "/dashboard/customize", icon: Paintbrush },
     { name: "إعدادات المتجر", href: "/dashboard/settings", icon: Settings },
   ]
 
-  const storeSlug = store?.slug || "cairo-couture"
-  const storeName = store?.name || "متجر كايرو كوتور"
+  const storeSlug = store?.slug || ""
+  const storeName = store?.name || "متجرك"
 
   const handleLogout = async () => {
-    await logoutAction()
-    router.push("/")
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      const result = await logoutAction()
+      if (!result.ok) {
+        toast.error("تعذر تسجيل الخروج. حاولي مرة أخرى.")
+        return
+      }
+      router.replace(result.redirectTo)
+      router.refresh()
+    } catch {
+      toast.error("حدث خطأ أثناء تسجيل الخروج. حاولي مرة أخرى.")
+    } finally {
+      setLoggingOut(false)
+    }
   }
 
   return (
@@ -85,12 +100,12 @@ export default function DashboardLayout({
               </span>
             </div>
             <div className="text-[11px] text-muted-foreground truncate dir-ltr text-right">
-              {getStoreDisplayUrl(storeSlug)}
+              {storeSlug ? getStoreDisplayUrl(storeSlug) : "بيانات المتجر غير متاحة"}
             </div>
             <Link
-              href={getStorePath(storeSlug)}
-              target="_blank"
-              rel="noreferrer"
+              href={storeSlug ? getStorePath(storeSlug) : "/dashboard/settings"}
+              target={storeSlug ? "_blank" : undefined}
+              rel={storeSlug ? "noreferrer" : undefined}
               className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-bold pt-1"
             >
               <span>معاينة متجرك</span>
@@ -133,11 +148,12 @@ export default function DashboardLayout({
         <div className="pt-6 border-t border-border/60">
           <button
             type="button"
-            onClick={handleLogout}
-            className="w-full flex items-center justify-start text-muted-foreground hover:text-destructive gap-3 rounded-2xl px-4 py-3 text-sm font-semibold hover:bg-destructive/10 transition-colors"
+            onClick={() => void handleLogout()}
+            disabled={loggingOut}
+            className="w-full flex items-center justify-start text-muted-foreground hover:text-destructive gap-3 rounded-2xl px-4 py-3 text-sm font-semibold hover:bg-destructive/10 transition-colors disabled:opacity-50"
           >
             <LogOut className="w-5 h-5" />
-            <span>تسجيل الخروج</span>
+            <span>{loggingOut ? "جاري تسجيل الخروج..." : "تسجيل الخروج"}</span>
           </button>
         </div>
       </aside>
@@ -150,6 +166,9 @@ export default function DashboardLayout({
             <button
               type="button"
               onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label={sidebarOpen ? "إغلاق القائمة" : "فتح القائمة"}
+              aria-expanded={sidebarOpen}
+              aria-controls="dashboard-mobile-navigation"
               className="lg:hidden p-2 rounded-xl text-foreground hover:bg-muted"
             >
               {sidebarOpen ? (
@@ -169,16 +188,11 @@ export default function DashboardLayout({
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <button
-              type="button"
-              className="relative w-10 h-10 rounded-xl border border-border/60 bg-background/80 hover:bg-muted flex items-center justify-center text-foreground transition-colors"
-              aria-label="الإشعارات"
+            <div
+              className="w-10 h-10 rounded-xl bg-primary text-primary-foreground font-black flex items-center justify-center text-sm shadow-sm"
+              aria-label={`الحساب: ${storeName}`}
+              title={storeName}
             >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />
-            </button>
-            <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground font-black flex items-center justify-center text-sm shadow-sm">
               {storeName.charAt(0)}
             </div>
           </div>
@@ -186,13 +200,14 @@ export default function DashboardLayout({
 
         {/* Mobile Navigation Drawer */}
         {sidebarOpen && (
-          <div className="lg:hidden fixed inset-0 z-40 bg-background/95 backdrop-blur-xl p-6 flex flex-col justify-between">
+          <div id="dashboard-mobile-navigation" role="dialog" aria-modal="true" aria-label="قائمة لوحة التحكم" className="lg:hidden fixed inset-0 z-40 bg-background/95 backdrop-blur-xl p-6 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="flex items-center justify-between pb-4 border-b border-border">
                 <Logo size="md" />
                 <button
                   type="button"
                   onClick={() => setSidebarOpen(false)}
+                  aria-label="إغلاق القائمة"
                   className="p-2 rounded-xl text-foreground hover:bg-muted"
                 >
                   <X className="w-6 h-6" />
@@ -227,7 +242,9 @@ export default function DashboardLayout({
             <Button
               variant="outline"
               className="w-full justify-center"
-              onClick={handleLogout}
+              onClick={() => void handleLogout()}
+              disabled={loggingOut}
+              isLoading={loggingOut}
             >
               تسجيل الخروج
             </Button>

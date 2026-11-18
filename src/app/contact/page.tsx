@@ -6,7 +6,6 @@ import { Logo } from "@/components/ui/Logo"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Card, CardContent } from "@/components/ui/Card"
-import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { MessageCircle, Mail, Phone, ArrowRight, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -27,7 +26,6 @@ export default function ContactPage() {
       <header className="max-w-4xl mx-auto w-full flex items-center justify-between pb-6 border-b border-border">
         <Logo size="md" />
         <div className="flex items-center gap-2">
-          <ThemeToggle />
           <Link href="/">
             <Button variant="ghost" size="sm" className="gap-1.5">
               <ArrowRight className="w-4 h-4" />

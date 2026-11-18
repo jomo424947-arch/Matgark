@@ -24,14 +24,12 @@ export default function NewProductPage() {
   const [description, setDescription] = useState("")
   const [image, setImage] = useState<string | null>(null)
   const [variants, setVariants] = useState([
-    { size: "S", color: "أسود", stock: "10" },
-    { size: "M", color: "أسود", stock: "15" },
-    { size: "L", color: "أسود", stock: "10" },
+    { size: "", color: "", stock: "0" },
   ])
   const [loading, setLoading] = useState(false)
 
   const addVariant = () => {
-    setVariants([...variants, { size: "M", color: "أبيض", stock: "5" }])
+    setVariants((current) => [...current, { size: "", color: "", stock: "0" }])
   }
 
   const removeVariant = (index: number) => {
@@ -46,50 +44,79 @@ export default function NewProductPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      toast.error("اختاري صورة PNG أو JPG أو WEBP فقط")
+      e.target.value = ""
+      return
+    }
     if (file.size > 5 * 1024 * 1024) {
       toast.error("حجم الصورة كبير جداً، الحد الأقصى 5 ميجابايت")
+      e.target.value = ""
       return
     }
 
     const reader = new FileReader()
-    reader.onload = (event) => {
-      setImage(event.target?.result as string)
-      toast.success("تم اختيار الصورة بنجاح")
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setImage(reader.result)
+        toast.success("تم اختيار الصورة بنجاح")
+      }
     }
+    reader.onerror = () => toast.error("تعذر قراءة الصورة، اختاري ملفاً آخر")
     reader.readAsDataURL(file)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!name.trim() || !price || Number(price) <= 0) {
-      toast.error("يرجى إدخال اسم المنتج وسعر صحيح")
+    const numericPrice = Number(price)
+    if (
+      name.trim().length < 2 ||
+      !Number.isFinite(numericPrice) ||
+      numericPrice <= 0 ||
+      !category.trim()
+    ) {
+      toast.error("يرجى إدخال اسم منتج صحيح وفئة وسعر أكبر من صفر")
+      return
+    }
+    if (description.trim().length > 1000) {
+      toast.error("وصف المنتج يجب ألا يتجاوز 1000 حرف")
+      return
+    }
+
+    if (variants.some((v) => !v.size.trim() || !v.color.trim() || !Number.isInteger(Number(v.stock)) || Number(v.stock) < 0)) {
+      toast.error("راجعي المقاسات والألوان وكميات المخزون")
       return
     }
 
     setLoading(true)
-
-    const res = await createProductAction({
-      name,
-      price: Number(price),
-      category,
-      description: description.trim() || undefined,
-      image: image || undefined,
-      variants: variants.map((v) => ({
-        size: v.size.trim() || "قياسي",
-        color: v.color.trim() || "افتراضي",
-        stock: Math.max(0, Number(v.stock) || 0),
-      })),
-    })
-
-    setLoading(false)
+    let res: Awaited<ReturnType<typeof createProductAction>>
+    try {
+      res = await createProductAction({
+        name: name.trim(),
+        price: numericPrice,
+        category: category.trim(),
+        description: description.trim() || undefined,
+        image: image || undefined,
+        variants: variants.map((v) => ({
+          size: v.size.trim(),
+          color: v.color.trim(),
+          stock: Number(v.stock),
+        })),
+      })
+    } catch {
+      toast.error("حدث خطأ أثناء إضافة المنتج. حاولي مرة أخرى.")
+      return
+    } finally {
+      setLoading(false)
+    }
 
     if (!res.ok) {
       toast.error(res.error || "فشل إضافة المنتج")
       return
     }
 
-    toast.success("تم حفظ ونشر المنتج في المتجر بنجاح!")
+    toast.success("تمت إضافة المنتج بنجاح!")
     router.push("/dashboard/products")
   }
 
@@ -127,12 +154,16 @@ export default function NewProductPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              minLength={2}
+              maxLength={120}
             />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
                 label="السعر للعميل (بالجنيه المصري) *"
                 type="number"
+                min="0.01"
+                step="0.01"
                 placeholder="450"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
@@ -148,6 +179,7 @@ export default function NewProductPage() {
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
+                  required
                   className="w-full h-12 rounded-2xl border border-input bg-background px-4 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 text-right"
                 >
                   <option value="ملابس">ملابس رجالي / حريمي</option>
@@ -169,6 +201,7 @@ export default function NewProductPage() {
                 placeholder="اكتب تفاصيل الخامة، تعليمات الغسيل، أو أي تفاصيل يحتاجها العميل..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                maxLength={1000}
                 className="w-full p-4 rounded-2xl border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 text-right resize-none"
               />
             </div>
@@ -180,7 +213,7 @@ export default function NewProductPage() {
           <CardHeader>
             <CardTitle>صورة المنتج</CardTitle>
             <CardDescription>
-              الصور الواضحة بتزود المبيعات بنسبة 80%
+              اختاري صورة واضحة تمثل المنتج وتساعد العميل على التعرف عليه
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -233,6 +266,7 @@ export default function NewProductPage() {
               variant="outline"
               size="sm"
               onClick={addVariant}
+              disabled={loading}
               className="font-bold gap-1.5"
             >
               <Plus className="w-4 h-4" />
@@ -252,6 +286,7 @@ export default function NewProductPage() {
                     </label>
                     <input
                       type="text"
+                      aria-label={`مقاس الخيار ${idx + 1}`}
                       value={v.size}
                       onChange={(e) => {
                         const newV = [...variants]
@@ -268,6 +303,7 @@ export default function NewProductPage() {
                     </label>
                     <input
                       type="text"
+                      aria-label={`لون الخيار ${idx + 1}`}
                       value={v.color}
                       onChange={(e) => {
                         const newV = [...variants]
@@ -284,6 +320,9 @@ export default function NewProductPage() {
                     </label>
                     <input
                       type="number"
+                      min="0"
+                      step="1"
+                      aria-label={`كمية مخزون الخيار ${idx + 1}`}
                       value={v.stock}
                       onChange={(e) => {
                         const newV = [...variants]
@@ -300,6 +339,8 @@ export default function NewProductPage() {
                   onClick={() => removeVariant(idx)}
                   className="p-2.5 rounded-xl hover:bg-destructive/10 text-destructive mt-4"
                   title="حذف هذا الخيار"
+                  aria-label={`حذف الخيار ${idx + 1}`}
+                  disabled={loading}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -320,9 +361,10 @@ export default function NewProductPage() {
             size="lg"
             className="font-bold shadow-xl shadow-primary/25 px-8"
             isLoading={loading}
+            disabled={loading}
           >
             <CheckCircle2 className="w-5 h-5 ml-2" />
-            <span>حفظ ونشر في المتجر</span>
+            <span>حفظ المنتج</span>
           </Button>
         </div>
       </form>

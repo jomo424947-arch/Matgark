@@ -1,7 +1,6 @@
 import Link from "next/link"
 import { Logo } from "@/components/ui/Logo"
 import { Button } from "@/components/ui/Button"
-import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { ShieldCheck, ArrowRight } from "lucide-react"
 
 export default function PrivacyPage() {
@@ -10,7 +9,6 @@ export default function PrivacyPage() {
       <header className="max-w-4xl mx-auto w-full flex items-center justify-between pb-6 border-b border-border">
         <Logo size="md" />
         <div className="flex items-center gap-2">
-          <ThemeToggle />
           <Link href="/">
             <Button variant="ghost" size="sm" className="gap-1.5">
               <ArrowRight className="w-4 h-4" />

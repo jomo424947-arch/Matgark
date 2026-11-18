@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/Button"
 import {
@@ -29,70 +29,81 @@ import {
   Plus,
   Share2,
   MessageCircle,
+  RefreshCw,
 } from "lucide-react"
 import { toast } from "sonner"
 
 export default function DashboardHome() {
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [store, setStore] = useState<Store | null>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [orders, setOrders] = useState<Order[]>([])
 
-  useEffect(() => {
-    let mounted = true
-    getMerchantDashboardDataAction()
-      .then((data) => {
-        if (mounted) {
-          setStore(data.store)
-          setStats(data.stats)
-          setOrders(data.recentOrders)
-          setLoading(false)
-        }
-      })
-      .catch(() => {
-        if (mounted) setLoading(false)
-      })
-    return () => {
-      mounted = false
+  const loadDashboard = useCallback(async () => {
+    setLoading(true)
+    setLoadError(false)
+    try {
+      const data = await getMerchantDashboardDataAction()
+      setStore(data.store)
+      setStats(data.stats)
+      setOrders(data.recentOrders ?? [])
+    } catch {
+      setLoadError(true)
+      toast.error("تعذر تحميل بيانات لوحة التحكم. حاولي إعادة المحاولة.")
+    } finally {
+      setLoading(false)
     }
   }, [])
 
-  const storeSlug = store?.slug || "cairo-couture"
-  const storeName = store?.name || "متجر كايرو كوتور"
+  useEffect(() => {
+    void loadDashboard()
+  }, [loadDashboard])
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(`https://${getStoreDisplayUrl(storeSlug)}`)
-    setCopied(true)
-    toast.success("تم نسخ لينك متجرك بنجاح!")
-    setTimeout(() => setCopied(false), 2000)
+  const storeSlug = store?.slug || ""
+  const storeName = store?.name || "متجرك"
+
+  const handleCopyLink = async () => {
+    if (!storeSlug) {
+      toast.error("بيانات رابط المتجر غير متاحة حالياً")
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(`https://${getStoreDisplayUrl(storeSlug)}`)
+      setCopied(true)
+      toast.success("تم نسخ لينك متجرك بنجاح!")
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error("تعذر نسخ الرابط. تأكدي من صلاحية النسخ في المتصفح.")
+    }
   }
 
   const statCards = [
     {
       title: "مبيعات اليوم",
-      value: stats ? formatPrice(stats.todaySales) : "0 ج.م",
+      value: stats ? formatPrice(stats.todaySales) : "—",
       change: stats?.todayOrdersCount ? `${stats.todayOrdersCount} أوردرات اليوم` : "لا توجد أوردرات اليوم",
       icon: TrendingUp,
       color: "text-emerald-500 bg-emerald-500/10",
     },
     {
       title: "أوردرات اليوم",
-      value: stats ? `${stats.todayOrdersCount} أوردر` : "0",
+      value: stats ? `${stats.todayOrdersCount} أوردر` : "—",
       change: stats ? `${stats.newOrdersCount} جديدة قيد المتابعة` : "",
       icon: ShoppingCart,
       color: "text-primary bg-primary/10",
     },
     {
       title: "إجمالي المنتجات",
-      value: stats ? `${stats.totalProductsCount} منتج` : "0",
+      value: stats ? `${stats.totalProductsCount} منتج` : "—",
       change: stats?.lowStockProductsCount ? `${stats.lowStockProductsCount} مخزون منخفض` : "المخزون متوفر",
       icon: Package,
       color: "text-amber-500 bg-amber-500/10",
     },
     {
       title: "إجمالي العملاء",
-      value: stats ? `${stats.totalCustomersCount} عميل` : "0",
+      value: stats ? `${stats.totalCustomersCount} عميل` : "—",
       change: "مسجلين في متجرك",
       icon: Users,
       color: "text-sky-500 bg-sky-500/10",
@@ -108,7 +119,7 @@ export default function DashboardHome() {
             أهلاً، {storeName} 👋
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            متجرك نشط، واللينك شغال وجاهز لاستقبال الأوردرات.
+            تابعي أداء متجرك وأديري المنتجات والأوردرات من مكان واحد.
           </p>
         </div>
 
@@ -132,6 +143,17 @@ export default function DashboardHome() {
         </div>
       </div>
 
+      {loadError && (
+        <Card>
+          <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p role="alert" className="text-sm text-muted-foreground">لم يتم تحميل بيانات المتجر والإحصائيات، لذلك لن نعرض أرقامًا افتراضية.</p>
+            <Button type="button" variant="outline" size="sm" onClick={() => void loadDashboard()} className="gap-2">
+              <RefreshCw className="w-4 h-4" /> إعادة المحاولة
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {statCards.map((stat, idx) => {
@@ -149,12 +171,12 @@ export default function DashboardHome() {
                     <Icon className="w-5 h-5" />
                   </div>
                   <span className="text-[11px] font-bold text-muted-foreground">
-                    {stat.change}
+                    {loading ? "جاري التحميل..." : loadError ? "تعذر تحميل البيانات" : stat.change}
                   </span>
                 </div>
                 <div>
                   <div className="text-2xl sm:text-3xl font-black text-foreground font-cairo">
-                    {loading ? "..." : stat.value}
+                    {loading ? "..." : loadError ? "—" : stat.value}
                   </div>
                   <div className="text-xs font-semibold text-muted-foreground mt-0.5">
                     {stat.title}
@@ -177,7 +199,7 @@ export default function DashboardHome() {
           </div>
           <Link href="/dashboard/orders">
             <Button variant="ghost" size="sm" className="text-primary font-bold">
-              عرض كل الأوردرات
+              إدارة الأوردرات
             </Button>
           </Link>
         </CardHeader>
@@ -197,10 +219,14 @@ export default function DashboardHome() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {orders.length === 0 ? (
+                {loading ? (
+                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">جاري تحميل الأوردرات...</td></tr>
+                ) : loadError ? (
+                  <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">تعذر تحميل الأوردرات. استخدمي زر إعادة المحاولة بالأعلى.</td></tr>
+                ) : orders.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-8 text-muted-foreground">
-                      لا توجد أوردرات حتى الآن
+                      لا توجد أوردرات متاحة حاليًا
                     </td>
                   </tr>
                 ) : (

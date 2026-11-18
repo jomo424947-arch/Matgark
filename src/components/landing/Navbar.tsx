@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react"
 import Link from "next/link"
 import { Logo } from "@/components/ui/Logo"
 import { Button } from "@/components/ui/Button"
-import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Menu, X, ArrowLeft, Store } from "lucide-react"
 
 export function Navbar() {
@@ -55,10 +54,8 @@ export function Navbar() {
             </nav>
           </div>
 
-          {/* اليسار: أزرار تسجيل الدخول + Dark/Light toggle */}
+          {/* اليسار: أزرار تسجيل الدخول */}
           <div className="flex items-center gap-3">
-            <ThemeToggle />
-
             <Link href="/login" className="hidden sm:inline-flex">
               <Button variant="ghost" size="sm">
                 تسجيل الدخول

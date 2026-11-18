@@ -8,7 +8,6 @@ import { calculateOrderTotals, type Product } from "@/lib/storeLogic"
 import { useParams } from "next/navigation"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
-import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import {
   ShoppingCart,
   Plus,
@@ -77,6 +76,7 @@ function StorefrontContent() {
   const handleAddToCart = () => {
     if (!selectedProduct) return
     addItem({
+      storeSlug: store.slug,
       productId: selectedProduct.id,
       name: selectedProduct.name,
       price: selectedProduct.price,
@@ -152,8 +152,6 @@ function StorefrontContent() {
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeToggle />
-
             {/* زر الواتساب للمتجر */}
             <a
               href={`https://wa.me/2${store.phone}`}

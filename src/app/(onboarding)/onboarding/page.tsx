@@ -6,7 +6,6 @@ import { Logo } from "@/components/ui/Logo"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Card, CardContent } from "@/components/ui/Card"
-import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { completeOnboardingAction } from "@/server/actions/store"
 import { sanitizeSlug, getStorePath, getStoreDisplayUrl } from "@/lib/reserved-slugs"
 import {
@@ -28,18 +27,18 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false)
 
   // Step 1: Store data
-  const [storeName, setStoreName] = useState("براند رداء للأزياء")
-  const [storeSlug, setStoreSlug] = useState("redaa-fashion")
+  const [storeName, setStoreName] = useState("")
+  const [storeSlug, setStoreSlug] = useState("")
   const [category, setCategory] = useState("ملابس")
 
   // Step 2: WhatsApp & delivery
-  const [whatsapp, setWhatsapp] = useState("01012345678")
+  const [whatsapp, setWhatsapp] = useState("")
   const [deliveryFee, setDeliveryFee] = useState("40")
 
   // Step 3: First product
-  const [productName, setProductName] = useState("فستان صيفي قطن أنيق")
-  const [productPrice, setProductPrice] = useState("650")
-  const [productSizes, setProductSizes] = useState("S, M, L")
+  const [productName, setProductName] = useState("")
+  const [productPrice, setProductPrice] = useState("")
+  const [productSizes, setProductSizes] = useState("")
   const [productImage, setProductImage] = useState<string | null>(null)
 
   const handleCopy = () => {
@@ -66,6 +65,11 @@ export default function OnboardingPage() {
   }
 
   const handleFinishOnboarding = async () => {
+    if (!productName.trim() || !(Number(productPrice) > 0)) {
+      toast.error("يرجى إدخال اسم المنتج وسعر أكبر من صفر")
+      return
+    }
+
     setLoading(true)
 
     const res = await completeOnboardingAction({
@@ -101,7 +105,6 @@ export default function OnboardingPage() {
       <div className="max-w-4xl mx-auto w-full flex items-center justify-between pb-6 border-b border-border/60">
         <Logo size="md" />
         <div className="flex items-center gap-3">
-          <ThemeToggle />
           <Link href="/dashboard">
             <Button variant="ghost" size="sm" className="text-xs">
               تخطي إلى لوحة التحكم

@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Cairo, Inter } from "next/font/google"
+import { Cairo, Inter, Tajawal, Almarai, Amiri } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/layout/ThemeProvider"
 import { Toaster } from "sonner"
@@ -16,6 +16,10 @@ const inter = Inter({
   variable: "--font-inter",
   display: "swap",
 })
+
+const tajawal = Tajawal({ subsets: ["arabic", "latin"], variable: "--font-tajawal", weight: ["400", "500", "700", "800"], display: "swap" })
+const almarai = Almarai({ subsets: ["arabic", "latin"], variable: "--font-almarai", weight: ["400", "700", "800"], display: "swap" })
+const amiri = Amiri({ subsets: ["arabic", "latin"], variable: "--font-amiri", weight: ["400", "700"], display: "swap" })
 
 export const metadata: Metadata = {
   title: "متجرك | منصة متاجر إلكترونية للمحلات والمشاريع الصغيرة",
@@ -47,12 +51,13 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body
-        className={`${cairo.variable} ${inter.variable} font-cairo min-h-screen bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary`}
+        className={`${cairo.variable} ${inter.variable} ${tajawal.variable} ${almarai.variable} ${amiri.variable} font-cairo min-h-screen bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary`}
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"
+          enableSystem={false}
+          forcedTheme="light"
           disableTransitionOnChange
         >
           {children}

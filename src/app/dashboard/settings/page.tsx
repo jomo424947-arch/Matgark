@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import {
@@ -24,55 +24,94 @@ import {
 import { toast } from "sonner"
 
 export default function SettingsPage() {
-  const [storeName, setStoreName] = useState("براند كايرو كوتور")
-  const [slug, setSlug] = useState("cairo-couture")
-  const [whatsapp, setWhatsapp] = useState("01012345678")
+  const [storeName, setStoreName] = useState("")
+  const [slug, setSlug] = useState("")
+  const [whatsapp, setWhatsapp] = useState("")
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("flat")
-  const [flatFee, setFlatFee] = useState("40")
-  const [freeAbove, setFreeAbove] = useState("1000")
-  const [cityFees, setCityFees] = useState<Record<string, number>>({
-    القاهرة: 40,
-    الجيزة: 45,
-    الإسكندرية: 60,
-  })
-  const [themeColor, setThemeColor] = useState("#E8732A")
+  const [flatFee, setFlatFee] = useState("")
+  const [freeAbove, setFreeAbove] = useState("")
+  const [cityFees, setCityFees] = useState<Record<string, number>>({})
+  const [themeColor, setThemeColor] = useState("")
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+
+  const loadSettings = useCallback(async () => {
+    setInitialLoading(true)
+    setLoadError(false)
+    try {
+      const data = await getMerchantDashboardDataAction()
+      if (!data.store) {
+        throw new Error("Store settings are unavailable")
+      }
+
+      setStoreName(data.store.name)
+      setSlug(data.store.slug)
+      setWhatsapp(data.store.whatsapp)
+      setDeliveryType(data.store.deliveryType)
+      setFlatFee(String(data.store.flatFee))
+      setFreeAbove(
+        data.store.freeAbove !== null ? String(data.store.freeAbove) : ""
+      )
+      setCityFees(data.store.cityFees ?? {})
+      setThemeColor(data.store.themeColor)
+      setLogoUrl(data.store.logoUrl || null)
+    } catch {
+      setLoadError(true)
+      toast.error("تعذر تحميل إعدادات المتجر")
+    } finally {
+      setInitialLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    getMerchantDashboardDataAction()
-      .then((data) => {
-        if (data.store) {
-          setStoreName(data.store.name)
-          setSlug(data.store.slug)
-          setWhatsapp(data.store.whatsapp)
-          setDeliveryType(data.store.deliveryType)
-          setFlatFee(String(data.store.flatFee))
-          setFreeAbove(
-            data.store.freeAbove !== null ? String(data.store.freeAbove) : ""
-          )
-          if (data.store.cityFees) setCityFees(data.store.cityFees)
-          setThemeColor(data.store.themeColor)
-          setLogoUrl(data.store.logoUrl || null)
-        }
-      })
-      .catch(() => {})
-  }, [])
+    void loadSettings()
+  }, [loadSettings])
+
+  if (initialLoading) {
+    return (
+      <div className="mx-auto max-w-4xl rounded-2xl border border-border bg-card p-8 text-center text-muted-foreground">
+        جاري تحميل إعدادات المتجر...
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-4xl rounded-2xl border border-border bg-card p-8 text-center" role="alert">
+        <p className="font-bold text-foreground">تعذر تحميل إعدادات المتجر</p>
+        <p className="mt-2 text-sm text-muted-foreground">لم يتم تحميل بيانات الإعدادات، ولم يتم عرض بيانات تجريبية.</p>
+        <Button type="button" variant="outline" className="mt-4" onClick={() => void loadSettings()} isLoading={initialLoading}>
+          إعادة المحاولة
+        </Button>
+      </div>
+    )
+  }
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      toast.error("اختاري لوجو بصيغة PNG أو JPG أو WEBP")
+      e.target.value = ""
+      return
+    }
     if (file.size > 2 * 1024 * 1024) {
       toast.error("حجم اللوجو كبير، الحد الأقصى 2 ميجابايت")
+      e.target.value = ""
       return
     }
 
     const reader = new FileReader()
-    reader.onload = (event) => {
-      setLogoUrl(event.target?.result as string)
-      toast.success("تم اختيار اللوجو بنجاح")
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setLogoUrl(reader.result)
+        toast.success("تم اختيار اللوجو بنجاح")
+      }
     }
+    reader.onerror = () => toast.error("تعذر قراءة اللوجو، اختاري ملفاً آخر")
     reader.readAsDataURL(file)
   }
 
@@ -85,19 +124,31 @@ export default function SettingsPage() {
       return
     }
 
+    if (!storeName.trim() || !whatsapp.trim() || !/^#[0-9a-fA-F]{6}$/.test(themeColor) || !Number.isFinite(Number(flatFee)) || Number(flatFee) < 0 || (freeAbove.trim() && (!Number.isFinite(Number(freeAbove)) || Number(freeAbove) < 0))) {
+      toast.error("راجعي اسم المتجر ورقم واتساب واللون ورسوم التوصيل")
+      return
+    }
+
     setLoading(true)
-    const res = await updateStoreSettingsAction({
-      storeName,
-      slug: cleanSlug,
-      whatsapp,
-      deliveryType,
-      flatFee: Number(flatFee) || 0,
-      freeAbove: freeAbove.trim() ? Number(freeAbove) : null,
-      cityFees,
-      themeColor,
-      logoUrl: logoUrl || undefined,
-    })
-    setLoading(false)
+    let res: Awaited<ReturnType<typeof updateStoreSettingsAction>>
+    try {
+      res = await updateStoreSettingsAction({
+        storeName: storeName.trim(),
+        slug: cleanSlug,
+        whatsapp: whatsapp.trim(),
+        deliveryType,
+        flatFee: Number(flatFee),
+        freeAbove: freeAbove.trim() ? Number(freeAbove) : null,
+        cityFees,
+        themeColor,
+        logoUrl: logoUrl || undefined,
+      })
+    } catch {
+      toast.error("حدث خطأ أثناء حفظ الإعدادات. حاولي مرة أخرى.")
+      return
+    } finally {
+      setLoading(false)
+    }
 
     if (!res.ok) {
       toast.error(res.error || "فشل حفظ الإعدادات")
@@ -197,9 +248,11 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div
+              <button
+                type="button"
+                aria-pressed={deliveryType === "flat"}
                 onClick={() => setDeliveryType("flat")}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                className={`w-full text-right p-4 rounded-2xl border cursor-pointer transition-all ${
                   deliveryType === "flat"
                     ? "border-primary bg-primary/5 shadow-sm"
                     : "border-border hover:bg-muted/30"
@@ -211,11 +264,13 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground">
                   مبلغ موحد لكل الأوردرات في جميع المحافظات
                 </p>
-              </div>
+              </button>
 
-              <div
+              <button
+                type="button"
+                aria-pressed={deliveryType === "by_city"}
                 onClick={() => setDeliveryType("by_city")}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                className={`w-full text-right p-4 rounded-2xl border cursor-pointer transition-all ${
                   deliveryType === "by_city"
                     ? "border-primary bg-primary/5 shadow-sm"
                     : "border-border hover:bg-muted/30"
@@ -227,7 +282,7 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground">
                   تحديد سعر شحن لكل محافظة على حدة
                 </p>
-              </div>
+              </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
@@ -374,6 +429,7 @@ export default function SettingsPage() {
             size="lg"
             className="font-bold shadow-xl shadow-primary/25 px-8"
             isLoading={loading}
+            disabled={initialLoading || loadError}
           >
             <Save className="w-4 h-4 ml-2" />
             <span>حفظ كل الإعدادات</span>
