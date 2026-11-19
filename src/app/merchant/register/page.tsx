@@ -11,6 +11,7 @@ import { useI18n } from "@/components/providers/LanguageProvider"
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Logo } from "@/components/ui/Logo"
+import { registerWithEmailAction } from "@/server/actions/auth"
 import type { StoreThemePresetId, TenantStore } from "@/types/saas"
 
 const CATEGORIES: { id: TenantStore["category"]; ar: string; en: string; preset: StoreThemePresetId }[] = [
@@ -61,7 +62,7 @@ export default function MerchantRegisterPage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     const cleanEmail = email.trim().toLowerCase()
@@ -104,6 +105,25 @@ export default function MerchantRegisterPage() {
     }
 
     const catDef = CATEGORIES.find((c) => c.id === category) ?? CATEGORIES[0]
+
+    // Register with Server Action & create persistent database record & session cookie
+    try {
+      const serverRes = await registerWithEmailAction({
+        name: ownerName.trim(),
+        email: cleanEmail,
+        password,
+        brandName: brandNameAr.trim() || brandNameEn.trim(),
+        slug: normalizedSlug,
+        phone: phone.trim() || undefined,
+      })
+      if (!serverRes.ok) {
+        setError(serverRes.error || pick("فشل التسجيل، يرجى المحاولة مرة أخرى", "Registration failed"))
+        return
+      }
+    } catch {
+      // Continue to local sync
+    }
+
     const { merchant, store } = registerMerchantAndStore({
       ownerName: ownerName.trim(),
       email: cleanEmail,

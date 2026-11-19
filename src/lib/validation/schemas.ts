@@ -138,3 +138,73 @@ export const updateOrderStatusSchema = z.object({
   status: z.enum(["جديد", "مؤكد", "جاري الشحن", "تم التسليم", "ملغي"]),
   note: z.string().trim().max(200).optional(),
 })
+
+export const loginWithEmailSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("البريد الإلكتروني غير صحيح"),
+  password: z
+    .string()
+    .min(6, "كلمة المرور يجب أن لا تقل عن 6 أحرف"),
+})
+
+export const registerWithEmailSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "الاسم يجب أن يكون حرفين على الأقل")
+    .max(80, "الاسم طويل جداً"),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("البريد الإلكتروني غير صحيح"),
+  password: z
+    .string()
+    .min(6, "كلمة المرور يجب أن لا تقل عن 6 أحرف"),
+  brandName: z
+    .string()
+    .trim()
+    .min(2, "اسم المتجر يجب أن يكون حرفين على الأقل")
+    .max(60, "اسم المتجر طويل جداً"),
+  slug: slugSchema,
+  phone: z
+    .string()
+    .trim()
+    .optional()
+    .transform((val) => (val ? normalizeLocalEgyptPhone(val) : undefined)),
+})
+
+export const categoryInputSchema = z.object({
+  nameAr: z.string().trim().min(2, "اسم التصنيف بالعربية مطلوب"),
+  nameEn: z.string().trim().optional(),
+  slug: z.string().trim().min(2, "رابط التصنيف مطلوب"),
+  description: z.string().trim().max(300).optional(),
+  displayOrder: z.coerce.number().int().default(0),
+  isActive: z.boolean().default(true),
+})
+
+export const discountInputSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .min(3, "كود الخصم يجب أن يتكون من 3 أحرف على الأقل")
+    .max(30),
+  type: z.enum(["percentage", "fixed", "free_shipping"]),
+  value: z.coerce.number().min(0, "قيمة الخصم لا يمكن أن تكون سالبة"),
+  minOrderValue: z.coerce.number().min(0).default(0),
+  maxDiscount: z.coerce.number().positive().optional(),
+  usageLimit: z.coerce.number().int().positive().optional(),
+  expiresAt: z.string().optional(),
+  isActive: z.boolean().default(true),
+})
+
+export const inventoryAdjustmentSchema = z.object({
+  productId: z.string().min(1, "معرف المنتج مطلوب"),
+  variantId: z.string().optional(),
+  changeQty: z.coerce.number().int(),
+  reason: z.string().trim().min(2, "سبب تعديل المخزون مطلوب"),
+})
