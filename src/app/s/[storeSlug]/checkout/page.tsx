@@ -95,18 +95,18 @@ export default function StorefrontCheckoutPage() {
   const appliedCode = coupons[storeSlug] || ""
   const discountCalc = appliedCode
     ? evaluateDiscountCode({
-        code: appliedCode,
-        discounts,
-        storeId: store.id,
-        subtotal,
-        shippingFee: shippingCalc.fee,
-        cartItems: items.map((i) => ({
-          productId: i.productId,
-          categoryId: i.categoryId,
-          lineTotal: i.unitPrice * i.quantity,
-        })),
-        isFirstOrder: (customerRecord?.totalOrders ?? 0) === 0,
-      })
+      code: appliedCode,
+      discounts,
+      storeId: store.id,
+      subtotal,
+      shippingFee: shippingCalc.fee,
+      cartItems: items.map((i) => ({
+        productId: i.productId,
+        categoryId: i.categoryId,
+        lineTotal: i.unitPrice * i.quantity,
+      })),
+      isFirstOrder: (customerRecord?.totalOrders ?? 0) === 0,
+    })
     : null
 
   const effectiveShipping = discountCalc?.freeShipping ? 0 : shippingCalc.fee
