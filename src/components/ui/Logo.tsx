@@ -1,63 +1,64 @@
 "use client"
 
 import React from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+
+export const MATGARAK_LOGO_SRC =
+  "/assets/aistudio/1C267C07-7500-4591-A387-7508834DCD4F_5711fd30.png"
 
 interface LogoProps {
   className?: string
   iconOnly?: boolean
-  size?: "sm" | "md" | "lg" | "xl"
+  size?: "xs" | "sm" | "md" | "lg" | "xl"
   withSlogan?: boolean
   href?: string
+  /** Use "dark" when rendered on an always-dark surface (e.g. Admin sidebar/login). */
+  surface?: "auto" | "dark"
+  priority?: boolean
 }
 
-export function LogoIcon({ className, size = 32 }: { className?: string; size?: number }) {
+const FULL_SIZE_MAP = {
+  xs: { box: "h-7 w-[78px]", sizes: "80px" },
+  sm: { box: "h-8 w-[92px]", sizes: "96px" },
+  md: { box: "h-10 w-[114px]", sizes: "120px" },
+  lg: { box: "h-12 w-[138px]", sizes: "144px" },
+  xl: { box: "h-16 w-[184px]", sizes: "192px" },
+}
+
+const ICON_SIZE_MAP = {
+  xs: { box: "h-7 w-7", sizes: "64px" },
+  sm: { box: "h-8 w-8", sizes: "72px" },
+  md: { box: "h-10 w-10", sizes: "88px" },
+  lg: { box: "h-12 w-12", sizes: "104px" },
+  xl: { box: "h-16 w-16", sizes: "140px" },
+}
+
+export function LogoIcon({
+  className,
+  size = 32,
+}: {
+  className?: string
+  size?: number
+}) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 100 100"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={cn("transition-transform duration-200", className)}
+    <span
+      style={{ width: size, height: size }}
+      className={cn(
+        "relative inline-block overflow-hidden rounded-lg shrink-0 bg-[#FEFCFA]",
+        className
+      )}
     >
-      {/* شنطة التسوق - الإطار الخارجي واليد */}
-      {/* يد الشنطة (Handle) */}
-      <path
-        d="M36 32V24C36 17.37 41.37 12 48 12H52C58.63 12 64 17.37 64 24V32"
-        stroke="currentColor"
-        strokeWidth="7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+      <Image
+        src={MATGARAK_LOGO_SRC}
+        alt="Matgarak — متجرك"
+        fill
+        sizes={`${size * 2}px`}
+        referrerPolicy="no-referrer"
+        className="object-cover object-left scale-[1.15] mix-blend-multiply"
       />
-      {/* جسم الشنطة المنحني */}
-      <path
-        d="M22 34C22.6 30 25 28 29 28H71C75 28 77.4 30 78 34L86 80C86.8 84.5 83.5 88 79 88H21C16.5 88 13.2 84.5 14 80L22 34Z"
-        stroke="currentColor"
-        strokeWidth="7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* الحرف M المدمج مع اللوجو بلون التيراكوتا / البرتقالي المميز */}
-      {/* الجناح الأيسر لـ M */}
-      <path
-        d="M30 76L46 48L50 56"
-        stroke="currentColor"
-        strokeWidth="7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* الجناح الأيمن لـ M باللون البرتقالي البارز #E8732A */}
-      <path
-        d="M50 56L54 48L70 76"
-        stroke="#E8732A"
-        strokeWidth="8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="50" cy="56" r="3" fill="#E8732A" />
-    </svg>
+    </span>
   )
 }
 
@@ -67,47 +68,66 @@ export function Logo({
   size = "md",
   withSlogan = false,
   href = "/",
+  surface = "auto",
+  priority = false,
 }: LogoProps) {
-  const sizeMap = {
-    sm: { icon: 28, text: "text-lg", slogan: "text-[9px]" },
-    md: { icon: 38, text: "text-2xl", slogan: "text-[11px]" },
-    lg: { icon: 48, text: "text-3xl", slogan: "text-xs" },
-    xl: { icon: 64, text: "text-5xl", slogan: "text-sm" },
-  }
+  const dims = iconOnly ? ICON_SIZE_MAP[size] : FULL_SIZE_MAP[size]
 
-  const currentSize = sizeMap[size]
+  const frameClasses =
+    surface === "dark"
+      ? "bg-[#FAF6F1] px-2.5 py-1 rounded-xl border border-[#D9B58C]/30 shadow-sm"
+      : "dark:bg-[#FAF6F1] dark:px-2.5 dark:py-1 dark:rounded-xl dark:border dark:border-[#D9B58C]/25 dark:shadow-sm"
 
   const content = (
-    <div className={cn("inline-flex items-center gap-2.5 select-none text-foreground group", className)}>
-      {/* الأيقونة داخل كارت ناعم مثل الـ App Icon في الهوية */}
-      <div className="relative flex items-center justify-center p-1.5 rounded-2xl bg-foreground/5 dark:bg-foreground/10 group-hover:scale-105 transition-all duration-300">
-        <LogoIcon size={currentSize.icon} className="text-foreground" />
+    <div
+      className={cn(
+        "inline-flex items-center gap-2.5 select-none group shrink-0",
+        className
+      )}
+    >
+      <div
+        className={cn(
+          "inline-flex items-center justify-center transition-transform duration-200 group-hover:scale-[1.02]",
+          frameClasses
+        )}
+      >
+        <span className={cn("relative block overflow-hidden", dims.box)}>
+          <Image
+            src={MATGARAK_LOGO_SRC}
+            alt="متجرك — Matgarak"
+            fill
+            priority={priority}
+            sizes={dims.sizes}
+            referrerPolicy="no-referrer"
+            className={cn(
+              "object-cover mix-blend-multiply",
+              iconOnly
+                ? "object-left scale-[1.16]"
+                : "object-center scale-[1.08]"
+            )}
+          />
+        </span>
       </div>
 
-      {!iconOnly && (
-        <div className="flex flex-col text-right">
-          <div className="flex items-baseline gap-1.5">
-            <span className={cn("font-black tracking-tight text-foreground font-cairo", currentSize.text)}>
-              مَتجَرَك
-            </span>
-            <span className="text-[10px] tracking-widest uppercase font-semibold text-primary/90 hidden sm:inline">
-              Matgarak
-            </span>
-          </div>
-          {withSlogan && (
-            <span className={cn("text-muted-foreground font-medium font-cairo -mt-1", currentSize.slogan)}>
-              من البراندات الصغيرة .. إلى بيتك
-            </span>
-          )}
-        </div>
+      {withSlogan && !iconOnly && (
+        <span className="hidden sm:inline text-xs font-medium text-muted-foreground border-s border-border ps-2.5">
+          من البراندات الصغيرة .. إلى بيتك
+        </span>
       )}
     </div>
   )
 
   if (href) {
-    return <Link href={href} className="inline-block hover:opacity-95 transition-opacity">{content}</Link>
+    return (
+      <Link
+        href={href}
+        aria-label="متجرك — Matgarak"
+        className="inline-flex items-center hover:opacity-95 transition-opacity shrink-0"
+      >
+        {content}
+      </Link>
+    )
   }
 
   return content
 }
-

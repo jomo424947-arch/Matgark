@@ -1,9 +1,9 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  images: {
+    unoptimized: false,
+  },
   turbopack: {
     rules: {
       "*.css": {
@@ -15,37 +15,17 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: "/dashboard/products",
-        destination: "/products",
+        source: "/onboarding",
+        destination: "/merchant/onboarding",
         permanent: false,
       },
       {
-        source: "/dashboard/products/new",
-        destination: "/products/new",
+        source: "/store/:slug",
+        destination: "/s/:slug",
         permanent: false,
       },
-      {
-        source: "/dashboard/orders",
-        destination: "/orders",
-        permanent: false,
-      },
-      {
-        source: "/dashboard/customers",
-        destination: "/customers",
-        permanent: false,
-      },
-      {
-        source: "/dashboard/settings",
-        destination: "/settings",
-        permanent: false,
-      },
-      {
-        source: "/dashboard/onboarding",
-        destination: "/onboarding",
-        permanent: false,
-      },
-    ];
+    ]
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig

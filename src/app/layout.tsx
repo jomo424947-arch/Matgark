@@ -1,41 +1,44 @@
 import type { Metadata } from "next"
-import { Cairo, Inter } from "next/font/google"
+import { Cairo, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/layout/ThemeProvider"
+import { LanguageProvider } from "@/components/providers/LanguageProvider"
 import { Toaster } from "sonner"
 
 const cairo = Cairo({
   subsets: ["arabic", "latin"],
   variable: "--font-cairo",
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  weight: ["400", "500", "600", "700", "800"],
   display: "swap",
 })
 
-const inter = Inter({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-jakarta",
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  weight: ["400", "500", "600"],
   display: "swap",
 })
 
 export const metadata: Metadata = {
-  title: "متجرك | منصة متاجر إلكترونية للمحلات والمشاريع الصغيرة",
+  title: "Matgarak | Multi-Tenant E-Commerce SaaS Platform — منصة متجرك",
   description:
-    "افتح متجرك الإلكتروني في 5 دقايق باسم محلك. بيع لعملائك، ونظّم أوردراتك ومخزونك بكل سهولة وبدون عمولات خفية.",
-  keywords: [
-    "متجر الكتروني",
-    "تجارة الكترونية",
-    "مشاريع صغيرة",
-    "براندات",
-    "متجرك",
-    "بيع اونلاين",
-    "واتساب",
-  ],
-  authors: [{ name: "Matgarak" }],
+    "Launch, customize, and manage independent online stores with visual theming, inventory management, order workflows, and bilingual Arabic/English storefronts.",
+  icons: {
+    icon: "/assets/aistudio/1C267C07-7500-4591-A387-7508834DCD4F_5711fd30.png",
+    apple: "/assets/aistudio/1C267C07-7500-4591-A387-7508834DCD4F_5711fd30.png",
+  },
   openGraph: {
-    title: "متجرك | من البراندات الصغيرة .. إلى بيتك",
-    description: "أنشئ متجرك الإلكتروني الآن وابدأ البيع لعملائك مباشرة وبسهولة.",
+    title: "Matgarak | Multi-Tenant E-Commerce SaaS Platform",
+    description:
+      "Create, customize, and scale your independent brand storefront in Arabic and English.",
     type: "website",
-    locale: "ar_EG",
   },
 }
 
@@ -47,16 +50,18 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body
-        className={`${cairo.variable} ${inter.variable} font-cairo min-h-screen bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary`}
+        className={`${cairo.variable} ${jakarta.variable} ${jetbrainsMono.variable} min-h-screen bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary`}
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster richColors position="top-center" dir="rtl" />
+          <LanguageProvider>
+            {children}
+            <Toaster richColors position="top-center" />
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

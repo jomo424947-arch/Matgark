@@ -6,7 +6,6 @@ import type {
   Order,
   Session,
   OtpCode,
-  AuditLogEntry,
   ProductStatus,
   DashboardStats,
   ProductVariant,
@@ -129,16 +128,6 @@ function rowToStatusHistory(
     status: r.status as OrderStatusHistoryEntry["status"],
     timestamp: r.created_at as string,
     note: (r.note as string) || undefined,
-  }
-}
-
-function rowToAuditLog(r: Record<string, unknown>): AuditLogEntry {
-  return {
-    id: r.id as string,
-    storeId: r.store_id as string,
-    action: r.action as string,
-    details: r.details as string,
-    timestamp: r.created_at as string,
   }
 }
 

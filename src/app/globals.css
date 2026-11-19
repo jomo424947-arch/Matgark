@@ -1,49 +1,50 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
-    --background: 40 33% 98%;           /* #FAF8F5 بيج ناعم ودافي مثل الهوية */
-    --foreground: 20 14% 10%;            /* #1B1816 أسود دافي */
-    --card: 0 0% 100%;
-    --card-foreground: 20 14% 10%;
+    --background: 36 33% 98%;           /* Warm alabaster canvas matching logo #FCF9F5 */
+    --foreground: 25 47% 16%;           /* Deep espresso ink #3D2616 */
+    --card: 0 0% 100%;                  /* Pure crisp card surface */
+    --card-foreground: 25 47% 16%;
     --popover: 0 0% 100%;
-    --popover-foreground: 20 14% 10%;
-    --primary: 24 81% 54%;               /* #E8732A برتقالي الهوية الرسمي */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 35 30% 92%;             /* #F3ECE2 بيج ثانوي */
-    --secondary-foreground: 20 14% 15%;
-    --muted: 35 20% 93%;
-    --muted-foreground: 25 10% 45%;
-    --accent: 24 81% 54%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
+    --popover-foreground: 25 47% 16%;
+    --primary: 27 52% 38%;              /* Burnished bronze-caramel #945B2E (WCAG AA on white) */
+    --primary-foreground: 36 33% 98%;
+    --secondary: 33 38% 93%;            /* Soft champagne sand #F4ECE2 */
+    --secondary-foreground: 25 45% 18%;
+    --muted: 33 28% 93%;
+    --muted-foreground: 26 16% 42%;
+    --accent: 32 54% 58%;               /* Warm champagne gold #C9965E */
+    --accent-foreground: 25 47% 14%;
+    --destructive: 0 74% 48%;
     --destructive-foreground: 0 0% 98%;
-    --border: 30 15% 88%;
-    --input: 30 15% 88%;
-    --ring: 24 81% 54%;
-    --radius: 1rem;
+    --border: 32 24% 87%;
+    --input: 32 24% 85%;
+    --ring: 27 52% 38%;
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 240 6% 10%;            /* #18181B أسود فخم */
-    --foreground: 40 20% 97%;            /* أبيض مريح للعين */
-    --card: 240 5% 14%;                 /* #232327 كروت داكنة */
-    --card-foreground: 40 20% 97%;
-    --popover: 240 5% 14%;
-    --popover-foreground: 40 20% 97%;
-    --primary: 24 85% 56%;               /* #EB7830 برتقالي ساطع في الداكن */
+    --background: 24 20% 8%;            /* Deep espresso obsidian #191411 */
+    --foreground: 35 30% 95%;           /* Warm parchment white #F6F1EA */
+    --card: 24 18% 12%;                 /* Elevated dark espresso #241D18 */
+    --card-foreground: 35 30% 95%;
+    --popover: 24 18% 12%;
+    --popover-foreground: 35 30% 95%;
+    --primary: 28 56% 44%;              /* Rich luminous bronze-gold #AF6A31 (AA on white) */
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 4% 18%;
-    --secondary-foreground: 40 20% 97%;
-    --muted: 240 4% 18%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 24 85% 56%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 62% 30%;
+    --secondary: 24 15% 17%;
+    --secondary-foreground: 35 30% 95%;
+    --muted: 24 15% 17%;
+    --muted-foreground: 30 14% 66%;
+    --accent: 32 58% 56%;
+    --accent-foreground: 24 35% 10%;
+    --destructive: 0 65% 48%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 4% 20%;
-    --input: 240 4% 20%;
-    --ring: 24 85% 56%;
+    --border: 26 14% 21%;
+    --input: 26 14% 22%;
+    --ring: 32 58% 56%;
   }
 }
 
@@ -68,6 +69,8 @@
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
   --font-cairo: var(--font-cairo);
+  --font-jakarta: var(--font-jakarta);
+  --font-mono: var(--font-mono);
 }
 
 * {
@@ -84,17 +87,43 @@ body {
   font-feature-settings: "rlig" 1, "calt" 1;
 }
 
+html[dir="rtl"] body {
+  font-family: var(--font-cairo), var(--font-jakarta), system-ui, sans-serif;
+}
+
+html[dir="ltr"] body {
+  font-family: var(--font-jakarta), var(--font-cairo), system-ui, sans-serif;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.dir-ltr {
+  direction: ltr;
+}
+
+.dir-rtl {
+  direction: rtl;
+}
+
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: hsl(var(--background));
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
+  background: hsl(var(--muted-foreground) / 0.25);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+  background: hsl(var(--muted-foreground) / 0.45);
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
 }

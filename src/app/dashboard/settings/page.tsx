@@ -1,385 +1,225 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import { Button } from "@/components/ui/Button"
-import { Input } from "@/components/ui/Input"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/Card"
-import { getMerchantDashboardDataAction, updateStoreSettingsAction } from "@/server/actions/store"
-import { sanitizeSlug, isReservedSlug } from "@/lib/reserved-slugs"
-import type { DeliveryType } from "@/types/domain"
-import {
-  Save,
-  Store as StoreIcon,
-  Truck,
-  Palette,
-  MessageCircle,
-  Upload,
-} from "lucide-react"
+import React, { useState } from "react"
+import { Save, Globe, SearchCheck } from "lucide-react"
 import { toast } from "sonner"
+import { useActiveMerchantStore } from "@/components/merchant/useActiveMerchantStore"
+import { usePlatformStore } from "@/stores/platformStore"
+import { useI18n } from "@/components/providers/LanguageProvider"
+import type { Locale, StoreStatus, TenantStore } from "@/types/saas"
 
-export default function SettingsPage() {
-  const [storeName, setStoreName] = useState("براند كايرو كوتور")
-  const [slug, setSlug] = useState("cairo-couture")
-  const [whatsapp, setWhatsapp] = useState("01012345678")
-  const [deliveryType, setDeliveryType] = useState<DeliveryType>("flat")
-  const [flatFee, setFlatFee] = useState("40")
-  const [freeAbove, setFreeAbove] = useState("1000")
-  const [cityFees, setCityFees] = useState<Record<string, number>>({
-    القاهرة: 40,
-    الجيزة: 45,
-    الإسكندرية: 60,
-  })
-  const [themeColor, setThemeColor] = useState("#E8732A")
-  const [logoUrl, setLogoUrl] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+export default function MerchantSettingsPage() {
+  const { pick } = useI18n()
+  const { store } = useActiveMerchantStore()
+  const updateStore = usePlatformStore((s) => s.updateStore)
 
-  useEffect(() => {
-    getMerchantDashboardDataAction()
-      .then((data) => {
-        if (data.store) {
-          setStoreName(data.store.name)
-          setSlug(data.store.slug)
-          setWhatsapp(data.store.whatsapp)
-          setDeliveryType(data.store.deliveryType)
-          setFlatFee(String(data.store.flatFee))
-          setFreeAbove(
-            data.store.freeAbove !== null ? String(data.store.freeAbove) : ""
-          )
-          if (data.store.cityFees) setCityFees(data.store.cityFees)
-          setThemeColor(data.store.themeColor)
-          setLogoUrl(data.store.logoUrl || null)
-        }
-      })
-      .catch(() => {})
-  }, [])
+  const [nameAr, setNameAr] = useState(store?.nameAr || "")
+  const [nameEn, setNameEn] = useState(store?.nameEn || "")
+  const [slug, setSlug] = useState(store?.slug || "")
+  const [taglineAr, setTaglineAr] = useState(store?.taglineAr || "")
+  const [taglineEn, setTaglineEn] = useState(store?.taglineEn || "")
+  const [descriptionAr, setDescriptionAr] = useState(store?.descriptionAr || "")
+  const [descriptionEn, setDescriptionEn] = useState(store?.descriptionEn || "")
+  const [contactEmail, setContactEmail] = useState(store?.contactEmail || "")
+  const [contactPhone, setContactPhone] = useState(store?.contactPhone || "")
+  const [whatsapp, setWhatsapp] = useState(store?.whatsapp || "")
+  const [instagram, setInstagram] = useState(store?.socialLinks.instagram || "")
+  const [tiktok, setTiktok] = useState(store?.socialLinks.tiktok || "")
+  const [currency, setCurrency] = useState<TenantStore["localization"]["currency"]>(
+    store?.localization.currency || "EGP"
+  )
+  const [primaryLanguage, setPrimaryLanguage] = useState<Locale>(
+    store?.localization.primaryLanguage || "ar"
+  )
+  const [status, setStatus] = useState<StoreStatus>(store?.status || "published")
+  const [seoTitleAr, setSeoTitleAr] = useState(store?.seo.titleAr || "")
+  const [seoTitleEn, setSeoTitleEn] = useState(store?.seo.titleEn || "")
+  const [seoDescEn, setSeoDescEn] = useState(store?.seo.descriptionEn || "")
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  if (!store) return null
 
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("حجم اللوجو كبير، الحد الأقصى 2 ميجابايت")
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      setLogoUrl(event.target?.result as string)
-      toast.success("تم اختيار اللوجو بنجاح")
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
-
-    const cleanSlug = sanitizeSlug(slug)
-    if (isReservedSlug(cleanSlug)) {
-      toast.error("هذا الرابط محجوز للنظام، يرجى اختيار رابط آخر")
-      return
-    }
-
-    setLoading(true)
-    const res = await updateStoreSettingsAction({
-      storeName,
-      slug: cleanSlug,
+    updateStore(store.id, {
+      nameAr: nameAr.trim() || store.nameAr,
+      nameEn: nameEn.trim() || store.nameEn,
+      slug:
+        slug
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9-]/g, "-")
+          .replace(/-+/g, "-") || store.slug,
+      taglineAr,
+      taglineEn,
+      descriptionAr,
+      descriptionEn,
+      contactEmail,
+      contactPhone,
       whatsapp,
-      deliveryType,
-      flatFee: Number(flatFee) || 0,
-      freeAbove: freeAbove.trim() ? Number(freeAbove) : null,
-      cityFees,
-      themeColor,
-      logoUrl: logoUrl || undefined,
+      status: store.status === "suspended" ? "suspended" : status,
+      socialLinks: {
+        ...store.socialLinks,
+        instagram: instagram.trim() || undefined,
+        tiktok: tiktok.trim() || undefined,
+      },
+      localization: {
+        ...store.localization,
+        primaryLanguage,
+        currency,
+      },
+      seo: {
+        ...store.seo,
+        titleAr: seoTitleAr,
+        titleEn: seoTitleEn,
+        descriptionEn: seoDescEn,
+      },
     })
-    setLoading(false)
-
-    if (!res.ok) {
-      toast.error(res.error || "فشل حفظ الإعدادات")
-      return
-    }
-
-    toast.success("تم حفظ إعدادات المتجر بنجاح!")
+    toast.success(pick("تم حفظ إعدادات المتجر بنجاح", "Store settings saved"))
   }
-
-  const presetColors = [
-    { name: "برتقالي متجرك", hex: "#E8732A" },
-    { name: "أسود كلاسيك", hex: "#1A1A1A" },
-    { name: "أزرق ملكي", hex: "#2563EB" },
-    { name: "أخضر زمردي", hex: "#059669" },
-    { name: "وردي ناعم", hex: "#E11D48" },
-    { name: "بنفسجي", hex: "#7C3AED" },
-  ]
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 text-right">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-foreground">
-          إعدادات المتجر
-        </h1>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-          خصص بيانات متجرك، ورسوم التوصيل، والهوية البصرية
-        </p>
+    <form onSubmit={handleSave} className="space-y-6 max-w-4xl">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {pick("إعدادات المتجر", "Store Settings")}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {pick(
+              "تعديل الهوية العامة، بيانات التواصل، اللغة والعملة، وتحسين محركات البحث.",
+              "Manage general store identity, contact channels, localization, and SEO metadata."
+            )}
+          </p>
+        </div>
+        <button
+          type="submit"
+          className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-2"
+        >
+          <Save className="w-4 h-4" />
+          <span>{pick("حفظ التغييرات", "Save Changes")}</span>
+        </button>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
-        {/* Store Data */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <StoreIcon className="w-5 h-5 text-primary" />
-              <CardTitle>بيانات المتجر</CardTitle>
-            </div>
-            <CardDescription>الاسم واللينك الخاص بمتجرك</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              label="اسم المحل أو البراند"
-              value={storeName}
-              onChange={(e) => setStoreName(e.target.value)}
-              required
-            />
-
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-foreground/90">
-                لينك المتجر
-              </label>
-              <div className="flex items-center bg-muted/40 border border-input rounded-2xl px-4 py-2 text-sm text-foreground dir-ltr">
-                <span className="text-xs text-muted-foreground font-semibold">
-                  matgarak.com/
-                </span>
-                <input
-                  type="text"
-                  value={slug}
-                  onChange={(e) => setSlug(sanitizeSlug(e.target.value))}
-                  required
-                  className="flex-1 bg-transparent border-0 outline-none text-foreground font-bold pl-1 text-left"
-                />
-              </div>
-              {isReservedSlug(slug) && (
-                <p className="text-xs text-destructive font-semibold">
-                  هذا الرابط محجوز للنظام، يرجى اختيار رابط مختلف.
-                </p>
-              )}
-            </div>
-
-            <Input
-              label="رقم واتساب لاستقبال إشعارات الأوردرات"
-              type="tel"
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-              required
-              dir="ltr"
-              className="text-right"
-              helperText="كل أوردر جديد هيتبعتلك بتفاصيله على الرقم ده"
-              startIcon={
-                <MessageCircle className="w-4 h-4 text-emerald-500" />
-              }
-            />
-          </CardContent>
-        </Card>
-
-        {/* Shipping & Delivery */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Truck className="w-5 h-5 text-primary" />
-              <CardTitle>إعدادات التوصيل والشحن</CardTitle>
-            </div>
-            <CardDescription>
-              حدد الرسوم اللي هيدفعها العميل مع كل أوردر
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div
-                onClick={() => setDeliveryType("flat")}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all ${
-                  deliveryType === "flat"
-                    ? "border-primary bg-primary/5 shadow-sm"
-                    : "border-border hover:bg-muted/30"
-                }`}
-              >
-                <div className="font-bold text-sm text-foreground mb-1">
-                  رسم توصيل ثابت
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  مبلغ موحد لكل الأوردرات في جميع المحافظات
-                </p>
-              </div>
-
-              <div
-                onClick={() => setDeliveryType("by_city")}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all ${
-                  deliveryType === "by_city"
-                    ? "border-primary bg-primary/5 shadow-sm"
-                    : "border-border hover:bg-muted/30"
-                }`}
-              >
-                <div className="font-bold text-sm text-foreground mb-1">
-                  حسب المحافظة
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  تحديد سعر شحن لكل محافظة على حدة
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <Input
-                label="سعر التوصيل الافتراضي (ج.م) *"
-                type="number"
-                value={flatFee}
-                onChange={(e) => setFlatFee(e.target.value)}
-                dir="ltr"
-                className="text-right font-bold"
-              />
-
-              <Input
-                label="توصيل مجاني للطلبات فوق (ج.م)"
-                type="number"
-                value={freeAbove}
-                onChange={(e) => setFreeAbove(e.target.value)}
-                dir="ltr"
-                className="text-right font-bold"
-                helperText="اتركه فارغاً إذا كنت لا ترغب بتوصيل مجاني"
-              />
-            </div>
-
-            {deliveryType === "by_city" && (
-              <div className="space-y-2 border-t border-border pt-4">
-                <label className="block text-xs font-bold text-foreground">
-                  تحديد رسوم الشحن لكل محافظة (ج.م):
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {["القاهرة", "الجيزة", "الإسكندرية"].map((city) => (
-                    <div
-                      key={city}
-                      className="p-3 rounded-xl border border-border bg-muted/20 space-y-1"
-                    >
-                      <label className="text-xs font-bold text-foreground">
-                        {city}
-                      </label>
-                      <input
-                        type="number"
-                        value={cityFees[city] ?? 40}
-                        onChange={(e) =>
-                          setCityFees({
-                            ...cityFees,
-                            [city]: Number(e.target.value) || 0,
-                          })
-                        }
-                        className="w-full h-9 px-3 rounded-lg border border-input bg-background text-sm font-bold dir-ltr text-right"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Visual Identity */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Palette className="w-5 h-5 text-primary" />
-              <CardTitle>هوية المتجر والألوان</CardTitle>
-            </div>
-            <CardDescription>
-              اختار اللون الرئيسي اللي هيظهر لعملائك في واجهة المتجر
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-foreground/90">
-                اللون المميز (Accent Color)
-              </label>
-              <div className="flex flex-wrap items-center gap-3">
-                {presetColors.map((color) => (
-                  <button
-                    type="button"
-                    key={color.hex}
-                    onClick={() => setThemeColor(color.hex)}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all ${
-                      themeColor === color.hex
-                        ? "border-foreground shadow-md scale-105"
-                        : "border-border hover:scale-102"
-                    }`}
-                  >
-                    <span
-                      className="w-4 h-4 rounded-full border border-black/10 shrink-0"
-                      style={{ backgroundColor: color.hex }}
-                    />
-                    <span>{color.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Logo Upload */}
-            <div className="pt-2">
-              <label className="block text-sm font-semibold text-foreground/90 mb-2">
-                لوجو المحل
-              </label>
-              <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/30 border border-border">
-                {logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={logoUrl}
-                    alt="لوجو المتجر"
-                    className="w-16 h-16 rounded-2xl object-cover border border-border shadow-md"
-                  />
-                ) : (
-                  <div
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center text-primary-foreground font-black text-2xl shadow-md"
-                    style={{ backgroundColor: themeColor }}
-                  >
-                    {storeName.charAt(0)}
-                  </div>
-                )}
-                <div className="space-y-1">
-                  <label
-                    htmlFor="logo-file-input"
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-input bg-background hover:bg-muted text-xs font-bold cursor-pointer transition-colors"
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span>تغيير صورة اللوجو</span>
-                  </label>
-                  <input
-                    id="logo-file-input"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={handleLogoChange}
-                    className="hidden"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    PNG أو JPG بحجم لا يتجاوز 2 ميجابايت
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Save Button */}
-        <div className="flex justify-end pt-4">
-          <Button
-            type="submit"
-            size="lg"
-            className="font-bold shadow-xl shadow-primary/25 px-8"
-            isLoading={loading}
-          >
-            <Save className="w-4 h-4 ml-2" />
-            <span>حفظ كل الإعدادات</span>
-          </Button>
+      {/* General */}
+      <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+        <h2 className="text-sm font-bold">{pick("الهوية الأساسية", "General Identity")}</h2>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">{pick("اسم المتجر (عربي)", "Store Name (AR)")}</label>
+            <input value={nameAr} onChange={(e) => setNameAr(e.target.value)} className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">{pick("اسم المتجر (إنجليزي)", "Store Name (EN)")}</label>
+            <input value={nameEn} onChange={(e) => setNameEn(e.target.value)} className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">{pick("رابط المتجر (Slug)", "Storefront Slug")}</label>
+            <input value={slug} onChange={(e) => setSlug(e.target.value)} className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm font-mono dir-ltr" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">{pick("حالة المتجر", "Store Status")}</label>
+            <select
+              disabled={store.status === "suspended"}
+              value={status}
+              onChange={(e) => setStatus(e.target.value as StoreStatus)}
+              className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm disabled:opacity-50"
+            >
+              <option value="published">{pick("منشور (متاح للعملاء)", "Published (Live)")}</option>
+              <option value="draft">{pick("مسودة (مخفي)", "Draft (Hidden)")}</option>
+            </select>
+          </div>
         </div>
-      </form>
-    </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">{pick("الشعار المختصر (عربي)", "Tagline (AR)")}</label>
+            <input value={taglineAr} onChange={(e) => setTaglineAr(e.target.value)} className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">{pick("الشعار المختصر (إنجليزي)", "Tagline (EN)")}</label>
+            <input value={taglineEn} onChange={(e) => setTaglineEn(e.target.value)} className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm" />
+          </div>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">{pick("وصف المتجر (عربي)", "Description (AR)")}</label>
+            <textarea rows={2} value={descriptionAr} onChange={(e) => setDescriptionAr(e.target.value)} className="w-full rounded-xl border border-border bg-background p-3 text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">{pick("وصف المتجر (إنجليزي)", "Description (EN)")}</label>
+            <textarea rows={2} value={descriptionEn} onChange={(e) => setDescriptionEn(e.target.value)} className="w-full rounded-xl border border-border bg-background p-3 text-sm" />
+          </div>
+        </div>
+      </div>
+
+      {/* Contact & Localization */}
+      <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Globe className="w-4 h-4 text-primary" />
+          <h2 className="text-sm font-bold">{pick("التواصل واللغة والعملة", "Contact & Localization")}</h2>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">{pick("البريد", "Contact Email")}</label>
+            <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm dir-ltr" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">{pick("الهاتف", "Phone")}</label>
+            <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm dir-ltr" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">WhatsApp</label>
+            <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm dir-ltr" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">Instagram</label>
+            <input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@brand" className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm dir-ltr" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">TikTok</label>
+            <input value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="@brand" className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm dir-ltr" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-semibold mb-1.5">{pick("اللغة", "Lang")}</label>
+              <select value={primaryLanguage} onChange={(e) => setPrimaryLanguage(e.target.value as Locale)} className="w-full h-10 rounded-xl border border-border bg-background px-2 text-xs">
+                <option value="ar">AR</option>
+                <option value="en">EN</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1.5">{pick("العملة", "Currency")}</label>
+              <select value={currency} onChange={(e) => setCurrency(e.target.value as TenantStore["localization"]["currency"])} className="w-full h-10 rounded-xl border border-border bg-background px-2 text-xs">
+                <option value="EGP">EGP</option>
+                <option value="SAR">SAR</option>
+                <option value="AED">AED</option>
+                <option value="USD">USD</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SEO */}
+      <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <SearchCheck className="w-4 h-4 text-primary" />
+          <h2 className="text-sm font-bold">{pick("إعدادات SEO للمتجر", "Storefront SEO")}</h2>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">{pick("عنوان SEO (عربي)", "SEO Title (AR)")}</label>
+            <input value={seoTitleAr} onChange={(e) => setSeoTitleAr(e.target.value)} className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5">{pick("عنوان SEO (إنجليزي)", "SEO Title (EN)")}</label>
+            <input value={seoTitleEn} onChange={(e) => setSeoTitleEn(e.target.value)} className="w-full h-10 rounded-xl border border-border bg-background px-3 text-sm" />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold mb-1.5">{pick("وصف SEO", "Meta Description")}</label>
+          <textarea rows={2} value={seoDescEn} onChange={(e) => setSeoDescEn(e.target.value)} className="w-full rounded-xl border border-border bg-background p-3 text-sm" />
+        </div>
+      </div>
+    </form>
   )
 }

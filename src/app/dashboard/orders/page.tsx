@@ -1,289 +1,164 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/Card"
-import { Badge } from "@/components/ui/Badge"
-import { getMerchantDashboardDataAction } from "@/server/actions/store"
-import { updateOrderStatusAction } from "@/server/actions/orders"
-import { formatPrice } from "@/lib/utils"
-import { buildWhatsAppLink } from "@/lib/whatsapp"
-import {
-  ORDER_STATUS_BADGE_MAP,
-  ORDER_STATUSES,
-  type Order,
-  type OrderStatus,
-  type Store,
-} from "@/types/domain"
-import {
-  Search,
-  MessageCircle,
-  Clock,
-  MapPin,
-} from "lucide-react"
-import { toast } from "sonner"
+import React, { useState, useMemo } from "react"
+import Link from "next/link"
+import { Search, Eye } from "lucide-react"
+import { useActiveMerchantStore } from "@/components/merchant/useActiveMerchantStore"
+import { useI18n } from "@/components/providers/LanguageProvider"
+import { ALL_ORDER_STATUSES } from "@/lib/commerce/engine"
+import { formatOrderStatusLabel } from "@/lib/i18n/translations"
+import { StatusText } from "@/components/common/StatusText"
+import type { OrderLifecycleStatus } from "@/types/saas"
 
-export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [store, setStore] = useState<Store | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState("all")
-  const [searchTerm, setSearchTerm] = useState("")
+export default function MerchantOrdersPage() {
+  const { locale, pick, formatCurrency } = useI18n()
+  const { store, storeOrders } = useActiveMerchantStore()
 
-  const loadData = () => {
-    getMerchantDashboardDataAction()
-      .then((data) => {
-        setOrders(data.recentOrders.length > 0 ? data.recentOrders : [])
-        // Fetch all orders
-        setStore(data.store)
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }
+  const [query, setQuery] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"all" | OrderLifecycleStatus>("all")
+  const [paymentFilter, setPaymentFilter] = useState("all")
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return storeOrders.filter((ord) => {
+      const matchQuery =
+        !q ||
+        ord.orderNumber.toLowerCase().includes(q) ||
+        ord.customerName.toLowerCase().includes(q) ||
+        ord.customerPhone.toLowerCase().includes(q)
+      const matchStatus = statusFilter === "all" || ord.status === statusFilter
+      const matchPay = paymentFilter === "all" || ord.paymentMethod === paymentFilter
+      return matchQuery && matchStatus && matchPay
+    })
+  }, [storeOrders, query, statusFilter, paymentFilter])
 
-  const statusFilters = [
-    { id: "all", label: "كل الأوردرات" },
-    { id: "جديد", label: "جديد" },
-    { id: "مؤكد", label: "مؤكد" },
-    { id: "جاري الشحن", label: "جاري الشحن" },
-    { id: "تم التسليم", label: "تم التسليم" },
-    { id: "ملغي", label: "ملغي" },
-  ]
-
-  const filteredOrders = orders.filter((order) => {
-    if (filter !== "all" && order.status !== filter) return false
-    if (
-      searchTerm &&
-      !order.customerName.includes(searchTerm) &&
-      !order.orderNumber.includes(searchTerm) &&
-      !order.customerPhone.includes(searchTerm)
-    ) {
-      return false
-    }
-    return true
-  })
-
-  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
-    const res = await updateOrderStatusAction(orderId, newStatus)
-    if (!res.ok) {
-      toast.error(res.error || "فشل تحديث حالة الأوردر")
-      return
-    }
-
-    toast.success(`تم تحديث حالة الأوردر إلى "${newStatus}"`)
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-    )
-  }
-
-  const storeName = store?.name || "متجر كايرو كوتور"
+  if (!store) return null
+  const currency = store.localization.currency
 
   return (
-    <div className="space-y-6 text-right">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-foreground">
-          إدارة ومتابعة الأوردرات
+        <h1 className="text-2xl font-bold tracking-tight">
+          {pick("إدارة الطلبات", "Order Management")}
         </h1>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-          استقبل الأوردرات من العملاء، أكدها وتواصل معهم على واتساب
+        <p className="text-sm text-muted-foreground mt-1">
+          {pick(
+            "تابع جميع طلبات متجرك، حدّث حالات الشحن، واطبع الفواتير.",
+            "Manage full 9-stage order fulfillment, timelines, internal notes, and printable invoices."
+          )}
         </p>
       </div>
 
-      {/* Filter and Search Bar */}
-      <Card>
-        <CardContent className="p-4 space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            {statusFilters.map((sf) => (
-              <button
-                type="button"
-                key={sf.id}
-                onClick={() => setFilter(sf.id)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  filter === sf.id
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {sf.label}
-              </button>
-            ))}
-          </div>
+      <div className="bg-card border border-border rounded-2xl p-4 flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="w-4 h-4 text-muted-foreground absolute top-1/2 -translate-y-1/2 start-3" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={pick("ابحث برقم الطلب أو اسم العميل أو الهاتف...", "Search order #, customer, or phone...")}
+            className="w-full h-10 rounded-xl border border-border bg-background ps-9 pe-3 text-sm"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as "all" | OrderLifecycleStatus)}
+          className="h-10 rounded-xl border border-border bg-background px-3 text-sm"
+        >
+          <option value="all">{pick("كل حالات الطلب", "All Order Statuses")}</option>
+          {ALL_ORDER_STATUSES.map((st) => (
+            <option key={st} value={st}>
+              {formatOrderStatusLabel(st, locale)}
+            </option>
+          ))}
+        </select>
+        <select
+          value={paymentFilter}
+          onChange={(e) => setPaymentFilter(e.target.value)}
+          className="h-10 rounded-xl border border-border bg-background px-3 text-sm"
+        >
+          <option value="all">{pick("كل طرق الدفع", "All Payment Methods")}</option>
+          <option value="cod">{pick("الدفع عند الاستلام", "Cash on Delivery")}</option>
+          <option value="bank_transfer">{pick("تحويل بنكي", "Bank Transfer")}</option>
+        </select>
+      </div>
 
-          <div className="relative w-full">
-            <input
-              type="text"
-              placeholder="ابحث برقم الأوردر، اسم العميل، أو رقم التليفون..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-11 pr-10 pl-4 rounded-xl border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 text-right"
-            />
-            <Search className="w-4 h-4 text-muted-foreground absolute right-3.5 top-3.5" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Orders List */}
-      <div className="space-y-4">
-        {loading ? (
-          <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              جاري تحميل الأوردرات...
-            </CardContent>
-          </Card>
-        ) : filteredOrders.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              لا توجد أوردرات مطابقة للفلتر المحدد
-            </CardContent>
-          </Card>
-        ) : (
-          filteredOrders.map((order) => {
-            const badgeVariant =
-              ORDER_STATUS_BADGE_MAP[order.status] || "default"
-            const formattedDate = new Date(order.createdAt).toLocaleDateString(
-              "ar-EG",
-              {
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              }
-            )
-
-            return (
-              <Card
-                key={order.id}
-                className="hover:border-primary/50 transition-colors"
-              >
-                <CardContent className="p-6 space-y-4">
-                  {/* Card Header: Order #, Status, Date, Actions */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-border/60">
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg font-black text-foreground">
-                        أوردر #{order.orderNumber}
-                      </span>
-                      <Badge variant={badgeVariant}>{order.status}</Badge>
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>{formattedDate}</span>
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={buildWhatsAppLink(
-                          order.customerPhone,
-                          `مرحباً ${order.customerName}، معاك ${storeName} بخصوص أوردرك رقم #${order.orderNumber}`
-                        )}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 text-xs font-bold shadow-sm transition-colors"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        <span>مراسلة على واتساب</span>
-                      </a>
-
-                      {/* Controlled status changer */}
-                      <select
-                        value={order.status}
-                        onChange={(e) =>
-                          handleStatusChange(
-                            order.id,
-                            e.target.value as OrderStatus
-                          )
-                        }
-                        className="h-8 px-2.5 rounded-xl border border-input bg-background text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 text-right"
-                      >
-                        {ORDER_STATUSES.map((st) => (
-                          <option key={st} value={st}>
-                            {st}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Customer details and products breakdown */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
-                    {/* Customer Info */}
-                    <div className="space-y-2 text-xs">
-                      <div className="font-bold text-sm text-foreground">
-                        بيانات العميل والتوصيل:
-                      </div>
-                      <div className="text-foreground">
-                        <span className="font-semibold text-muted-foreground">
-                          الاسم:{" "}
-                        </span>
-                        {order.customerName}
-                      </div>
-                      <div className="text-foreground">
-                        <span className="font-semibold text-muted-foreground">
-                          الموبايل:{" "}
-                        </span>
-                        <span className="dir-ltr inline-block font-mono">
-                          {order.customerPhone}
-                        </span>
-                      </div>
-                      <div className="text-foreground flex items-start gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                        <span>
-                          {order.customerAddress} ({order.customerCity})
-                        </span>
-                      </div>
-                      {order.customerNotes && (
-                        <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-300 text-[11px] font-medium">
-                          📌 ملاحظة: {order.customerNotes}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Items Breakdown */}
-                    <div className="space-y-2 text-xs bg-muted/20 p-4 rounded-2xl border border-border/40">
-                      <div className="font-bold text-sm text-foreground">
-                        المنتجات المطلوبة:
-                      </div>
-                      <div className="space-y-1.5 divide-y divide-border/40">
-                        {order.items.map((item, i) => (
-                          <div
-                            key={i}
-                            className="flex justify-between items-center pt-1.5"
-                          >
-                            <span className="text-foreground font-medium">
-                              {item.name} ({item.size} - {item.color}) ×{" "}
-                              {item.quantity}
-                            </span>
-                            <span className="font-bold text-foreground font-cairo">
-                              {formatPrice(item.price * item.quantity)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="pt-3 border-t border-border flex justify-between text-muted-foreground">
-                        <span>رسوم التوصيل:</span>
-                        <span className="font-bold font-cairo">
-                          {order.deliveryFee === 0
-                            ? "مجاناً 🎉"
-                            : formatPrice(order.deliveryFee)}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center pt-2 border-t border-border text-sm font-black text-foreground">
-                        <span>المجموع الإجمالي المطلوب كاش:</span>
-                        <span className="text-primary text-base font-cairo">
-                          {formatPrice(order.total)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })
-        )}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
+                <th className="text-start py-3 px-4 font-semibold">{pick("رقم الطلب", "Order #")}</th>
+                <th className="text-start py-3 px-4 font-semibold">{pick("العميل", "Customer")}</th>
+                <th className="text-start py-3 px-4 font-semibold">{pick("العناصر", "Items")}</th>
+                <th className="text-start py-3 px-4 font-semibold">{pick("الدفع", "Payment")}</th>
+                <th className="text-start py-3 px-4 font-semibold">{pick("الحالة", "Status")}</th>
+                <th className="text-end py-3 px-4 font-semibold">{pick("الإجمالي", "Total")}</th>
+                <th className="text-end py-3 px-4 font-semibold">{pick("التفاصيل", "View")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtered.map((ord) => (
+                <tr key={ord.id} className="hover:bg-muted/30">
+                  <td className="py-3 px-4 font-mono font-semibold text-xs">
+                    <Link href={`/dashboard/orders/${ord.id}`} className="text-primary hover:underline">
+                      {ord.orderNumber}
+                    </Link>
+                    <p className="text-[11px] font-sans font-normal text-muted-foreground">
+                      {ord.createdAt.slice(0, 10)}
+                    </p>
+                  </td>
+                  <td className="py-3 px-4">
+                    <p className="font-semibold text-xs">{ord.customerName}</p>
+                    <p className="text-[11px] text-muted-foreground dir-ltr text-start">
+                      {ord.customerPhone}
+                    </p>
+                  </td>
+                  <td className="py-3 px-4 text-xs tabular-nums">
+                    {ord.items.reduce((s, i) => s + i.quantity, 0)} {pick("قطع", "items")}
+                  </td>
+                  <td className="py-3 px-4 text-xs text-muted-foreground">
+                    {ord.paymentMethod === "cod"
+                      ? pick("دفع عند الاستلام", "COD")
+                      : pick("تحويل بنكي", "Bank Transfer")}
+                  </td>
+                  <td className="py-3 px-4">
+                    <StatusText
+                      tone={
+                        ord.status === "delivered"
+                          ? "success"
+                          : ord.status === "cancelled" || ord.status === "refunded"
+                            ? "danger"
+                            : ord.status === "shipped"
+                              ? "info"
+                              : "warning"
+                      }
+                      label={formatOrderStatusLabel(ord.status, locale)}
+                    />
+                  </td>
+                  <td className="py-3 px-4 text-end font-semibold tabular-nums text-xs">
+                    {formatCurrency(ord.total, currency)}
+                  </td>
+                  <td className="py-3 px-4 text-end">
+                    <Link
+                      href={`/dashboard/orders/${ord.id}`}
+                      className="inline-flex items-center gap-1 h-8 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-muted"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>{pick("عرض", "Inspect")}</span>
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                    {pick("لا توجد طلبات مطابقة.", "No matching orders found.")}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

@@ -1,0 +1,1395 @@
+# Project: Multi-Tenant E-Commerce SaaS Platform
+## Complete Frontend Development & Product Experience
+
+### 1. Your Role
+
+Act as a Senior Product Designer, Senior Frontend Engineer, SaaS Architect, and E-commerce UX Specialist.
+
+Your mission is to transform the existing project into a professional, production-quality, multi-tenant e-commerce SaaS platform.
+
+This is not a simple e-commerce website.
+
+We are building a platform that allows independent brands and businesses to create, customize, launch, and manage their own professional online stores without needing programming knowledge.
+
+Think of the product as a combination of:
+- Shopify: Store creation and customization.
+- Amazon: Professional shopping experience and product discovery.
+- Modern SaaS dashboards: Store management, analytics, and administration.
+
+Use these products as functional and UX references, not as designs to copy.
+
+**Primary objective: Build the complete frontend experience for all three user types, with a scalable architecture and a premium design system.**
+
+The existing repository is an early prototype. Most of the product has not been implemented yet.
+
+Do not assume that existing functionality is complete.
+
+---
+
+# 2. Mandatory First Step: Analyze the Existing Project
+
+Before writing or modifying code:
+
+1. Inspect the entire repository structure.
+2. Identify the current framework, libraries, dependencies, routing system, and styling approach.
+3. Understand existing pages and components.
+4. Inspect the existing API integration and backend capabilities.
+5. Identify reusable code and incomplete functionality.
+6. Identify technical problems that could affect development.
+7. Understand how authentication and application state currently work.
+
+Do not replace the entire project or migrate to a different framework without a strong technical reason.
+
+Preserve existing working functionality whenever possible.
+
+After the analysis, create a clear implementation plan and then start development in organized phases.
+
+Do not stop after creating a plan. The goal is actual implementation.
+
+---
+
+# 3. Core Platform Architecture
+
+The platform must support three completely different user experiences.
+
+## A. Platform Super Admin
+
+This is the internal administration system used by the owners and operators of the SaaS platform.
+
+Suggested base route:
+
+`/admin`
+
+Only authorized platform administrators can access this area.
+
+### Admin Dashboard
+
+Create a professional overview containing:
+
+- Total registered merchants.
+- Total active stores.
+- Total suspended stores.
+- Total platform customers.
+- Total orders across the platform.
+- Total revenue and subscription revenue.
+- Monthly recurring revenue (MRR), when supported by available data.
+- New registrations.
+- Recent platform activity.
+- Subscription statistics.
+- Store growth analytics.
+- Revenue charts.
+- Orders and sales charts.
+
+All statistics must come from the available backend or clearly identified development data.
+
+### Merchant Management
+
+The admin must be able to:
+
+- View all registered merchants.
+- Search and filter merchants.
+- View merchant details.
+- View all stores owned by a merchant.
+- View merchant subscription information.
+- Activate or suspend accounts.
+- Review account status.
+- View registration and activity dates.
+- Manage merchant subscription plans.
+- Access store information.
+- Review reported problems.
+
+### Store Management
+
+Build a complete store management section.
+
+Features:
+
+- List all stores.
+- Search stores by name or owner.
+- Filter by status and subscription.
+- View individual store details.
+- Review store products and orders.
+- Activate or deactivate a store.
+- Manage store visibility.
+- View store configuration and customization information.
+- Track store creation and last activity.
+
+### Subscription & Plans Management
+
+The platform administrator should be able to:
+
+- Create subscription plans.
+- Edit existing plans.
+- Define subscription prices.
+- Set billing periods.
+- Define product limits.
+- Define store features and restrictions.
+- Enable or disable plans.
+- View active and expired subscriptions.
+- Track subscription renewals.
+- Review payment records.
+
+### Platform Analytics
+
+Include:
+
+- Revenue overview.
+- Merchant acquisition.
+- Store creation trends.
+- Sales volume.
+- Subscription conversion.
+- Growth reports.
+- Date filters.
+- Exportable reports where supported.
+
+### Platform Settings
+
+Include:
+
+- Platform name and branding.
+- Platform logo.
+- Default language.
+- Supported languages.
+- Default currency.
+- Global settings.
+- Admin profile.
+- Notification settings.
+- Permission management.
+
+### Admin Support & Notifications
+
+Include:
+
+- Merchant support requests.
+- Support ticket statuses.
+- Internal notifications.
+- Platform announcements.
+- Communication history where supported.
+
+---
+
+# 4. B. Merchant Dashboard — Store Owner Experience
+
+Suggested base route:
+
+`/dashboard`
+
+This is one of the most important parts of the project.
+
+The merchant must feel that they have a complete professional e-commerce management system.
+
+The interface should be simple enough for a non-technical business owner.
+
+## Merchant Onboarding
+
+Build a professional onboarding experience.
+
+When a merchant registers for the platform, guide them through these steps:
+
+1. Create an account.
+2. Verify their email or account through the available authentication system.
+3. Enter their brand name.
+4. Choose their store URL or slug.
+5. Upload their brand logo.
+6. Choose the primary store language.
+7. Choose their store category.
+8. Select an initial store template.
+9. Customize the store appearance.
+10. Add the first products.
+11. Configure shipping and payment options.
+12. Preview the store.
+13. Publish the store.
+
+Show onboarding progress and allow users to continue later.
+
+## Merchant Overview Dashboard
+
+The dashboard should contain:
+
+- Total sales.
+- Total orders.
+- Pending orders.
+- Completed orders.
+- Cancelled orders.
+- Total products.
+- Low-stock products.
+- Total customers.
+- Recent orders.
+- Top-selling products.
+- Sales charts.
+- Revenue charts.
+- Store performance.
+- Quick actions.
+
+Add a clear store status indicator:
+
+- Draft.
+- Published.
+- Suspended.
+
+Provide a visible button to open the public storefront.
+
+---
+
+# 5. Complete Product Management
+
+The merchant must have full control over their catalog.
+
+### Products
+
+Implement:
+
+- Add product.
+- Edit product.
+- Delete product.
+- Duplicate product.
+- Publish and unpublish product.
+- Product image gallery.
+- Main product image.
+- Product description.
+- Product price.
+- Compare-at price / original price.
+- SKU.
+- Barcode.
+- Product status.
+- Inventory quantity.
+- Low-stock threshold.
+- Product weight.
+- Product dimensions.
+- SEO title and description.
+
+### Product Variants
+
+Support products with multiple options:
+
+- Size.
+- Color.
+- Material.
+- Capacity.
+- Other custom attributes.
+
+Each variant should support:
+
+- Its own price.
+- SKU.
+- Stock quantity.
+- Image.
+- Availability.
+
+Example:
+
+Product: Premium Hoodie
+
+Variants:
+- Black / Small.
+- Black / Medium.
+- Black / Large.
+- White / Small.
+- White / Medium.
+- White / Large.
+
+Stock must be manageable per variant.
+
+### Categories & Collections
+
+Allow merchants to:
+
+- Create categories.
+- Edit categories.
+- Delete categories.
+- Add category images.
+- Create nested categories.
+- Assign products to categories.
+- Create featured collections.
+- Control category display order.
+
+Example:
+
+Fashion Store:
+- Men.
+  - T-Shirts.
+  - Hoodies.
+  - Pants.
+- Women.
+  - Dresses.
+  - Tops.
+- Accessories.
+
+Support category-specific images and presentation.
+
+### Inventory
+
+Build an inventory management interface:
+
+- Current stock.
+- Stock adjustments.
+- Stock history.
+- Low-stock alerts.
+- Out-of-stock products.
+- Variant inventory.
+- Inventory search and filters.
+
+---
+
+# 6. Complete Order Management
+
+The merchant should be able to manage the complete order lifecycle.
+
+Include:
+
+- All orders.
+- Order details.
+- Order number.
+- Customer information.
+- Purchased products.
+- Product variants.
+- Quantities.
+- Prices.
+- Shipping fees.
+- Discounts.
+- Total amount.
+- Payment method.
+- Payment status.
+- Shipping address.
+- Order timeline.
+
+Suggested order statuses:
+
+- Pending.
+- Confirmed.
+- Processing.
+- Ready for shipment.
+- Shipped.
+- Delivered.
+- Cancelled.
+- Returned.
+- Refunded.
+
+Allow merchants to:
+
+- Change order status.
+- Add internal notes.
+- View order history.
+- Search orders.
+- Filter by date, status, and payment.
+- Print or export invoices where supported.
+
+Provide a clean order details page with a visual timeline.
+
+---
+
+# 7. Customers, Marketing & Promotions
+
+### Customer Management
+
+Include:
+
+- Customer directory.
+- Customer profiles.
+- Customer contact information.
+- Order history.
+- Total spending.
+- Number of orders.
+- Registration date.
+- Customer search.
+- Customer segmentation.
+
+### Discount Management
+
+Merchants should be able to create:
+
+- Percentage discounts.
+- Fixed-value discounts.
+- Free shipping codes.
+- Product-specific discounts.
+- Category-specific discounts.
+- Minimum order value discounts.
+- Limited-use coupons.
+- Start and expiration dates.
+- First-order discounts.
+
+### Marketing Features
+
+Prepare the frontend for:
+
+- Promotional banners.
+- Featured products.
+- Featured collections.
+- Discount campaigns.
+- Newsletter subscriptions.
+- Product reviews.
+- Customer notifications.
+- Abandoned cart recovery.
+
+Only show integrations and automation controls as active when the required backend functionality exists.
+
+---
+
+# 8. THE MOST IMPORTANT FEATURE: Complete Store Customization
+
+The store owner must be able to customize their storefront without writing any code.
+
+This feature must receive special attention.
+
+Build a Store Builder / Theme Customizer.
+
+Suggested route:
+
+`/dashboard/store-design`
+
+## A. Brand Identity
+
+Allow the merchant to customize:
+
+- Store logo.
+- Favicon.
+- Store name.
+- Store description.
+- Brand colors.
+- Primary color.
+- Secondary color.
+- Accent color.
+- Background color.
+- Text color.
+- Typography.
+- Button appearance.
+- Border radius.
+- Product card appearance.
+
+## B. Theme Selection
+
+Provide multiple professionally designed store themes.
+
+Examples:
+
+**Theme 1: Minimal Fashion**
+- Clean white background.
+- Elegant typography.
+- Large product photography.
+- Minimal navigation.
+- Premium layout.
+
+**Theme 2: Modern Cosmetics**
+- Soft neutral background.
+- Elegant accent colors.
+- Attractive product cards.
+- Campaign banners.
+
+**Theme 3: Electronics**
+- Structured layout.
+- Strong product hierarchy.
+- Specification-focused product pages.
+- Clear pricing and comparison information.
+
+Each theme must have a preview.
+
+Changing themes must not delete products, categories, or store content.
+
+## C. Visual Store Editor
+
+Build a visual customization interface with three main areas:
+
+1. Left sidebar: Customization controls and sections.
+2. Center: Live storefront preview.
+3. Right or top panel: Preview settings, device selection, and publishing actions.
+
+The merchant should be able to:
+
+- Change store colors.
+- Upload and replace logos.
+- Change typography.
+- Edit homepage sections.
+- Show or hide sections.
+- Reorder sections.
+- Change banner images.
+- Edit banner titles and buttons.
+- Select featured categories.
+- Select featured products.
+- Customize the header.
+- Customize the footer.
+- Configure navigation menus.
+
+Support desktop and mobile previews.
+
+### Homepage Section Builder
+
+Provide configurable sections such as:
+
+- Announcement bar.
+- Header.
+- Hero banner.
+- Promotional banners.
+- Featured categories.
+- Featured collections.
+- New arrivals.
+- Best sellers.
+- Product grids.
+- Brand story.
+- Newsletter.
+- Footer.
+
+Sections should have editable content and display settings.
+
+### Important Technical Requirement
+
+Store customization must be data-driven.
+
+Do not hardcode one design for every merchant.
+
+Use a structured theme configuration with design tokens and CSS variables.
+
+Example:
+
+```ts
+interface StoreTheme {
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  textColor: string;
+  fontFamily: string;
+  borderRadius: string;
+  buttonStyle: "rounded" | "square" | "pill";
+  headerStyle: string;
+  productCardStyle: string;
+}
+```
+
+The storefront must render its appearance dynamically using the active merchant's theme configuration.
+
+Support:
+
+- Draft customization.
+- Live preview.
+- Save changes.
+- Publish changes.
+- Restore previous theme settings when supported.
+
+Do not require merchants to edit CSS or HTML.
+
+---
+
+# 9. Other Merchant Settings
+
+Create professional settings sections.
+
+### Store Settings
+
+- Store name.
+- Store URL / slug.
+- Store description.
+- Logo.
+- Contact information.
+- Email.
+- Phone.
+- Social media links.
+- Store status.
+- Business information.
+
+### Shipping Settings
+
+Prepare interfaces for:
+
+- Shipping zones.
+- Shipping methods.
+- Flat shipping rates.
+- Free shipping thresholds.
+- Local delivery.
+- Pickup options.
+- Estimated delivery times.
+
+### Payment Settings
+
+Prepare interfaces for:
+
+- Cash on delivery.
+- Bank transfer.
+- Online payment providers.
+- Payment status.
+- Payment configuration.
+
+Do not present payment providers as connected unless the backend integration has been verified.
+
+### Localization
+
+Allow merchants to configure:
+
+- Store language.
+- Supported languages.
+- Currency.
+- Currency display.
+- Regional settings.
+
+### SEO Settings
+
+- Store SEO title.
+- Meta description.
+- Social sharing images.
+- Product SEO.
+- Category SEO.
+
+### Staff Management
+
+Prepare a system for merchant teams.
+
+Roles could include:
+
+- Store Owner.
+- Administrator.
+- Manager.
+- Order Manager.
+- Inventory Manager.
+
+Permissions must be handled through a centralized permission system.
+
+---
+
+# 10. C. Storefront — Final Customer Experience
+
+Suggested routing:
+
+`/s/[storeSlug]`
+
+The storefront is the public e-commerce website that customers visit.
+
+This experience must look and feel like a real professional shopping website.
+
+The quality should be comparable to leading modern e-commerce platforms.
+
+The storefront must be independent for each merchant while sharing a common technical foundation.
+
+Every store should have its own:
+
+- Brand identity.
+- Logo.
+- Colors.
+- Typography.
+- Products.
+- Categories.
+- Banners.
+- Navigation.
+- Pages.
+- Customer accounts.
+- Orders.
+
+## Homepage
+
+Create a premium, conversion-focused homepage.
+
+Include:
+
+- Announcement bar.
+- Responsive header.
+- Store logo.
+- Search bar.
+- Navigation menu.
+- Category navigation.
+- Hero banners.
+- Promotional sections.
+- Featured categories.
+- Best-selling products.
+- New arrivals.
+- Recommended products.
+- Discount sections.
+- Brand story.
+- Newsletter.
+- Professional footer.
+
+Avoid unnecessary visual clutter.
+
+The homepage must dynamically load the individual store's content and theme.
+
+## Product Listing Pages
+
+Support:
+
+- Product grids.
+- Category filtering.
+- Price filtering.
+- Brand filtering where relevant.
+- Availability filtering.
+- Sorting.
+- Newest products.
+- Best-selling products.
+- Lowest price.
+- Highest price.
+- Search.
+- Pagination or infinite scrolling.
+
+Product cards should include:
+
+- Product image.
+- Product name.
+- Current price.
+- Original price when discounted.
+- Discount label.
+- Available colors or variants where relevant.
+- Wishlist action.
+- Quick view.
+- Add-to-cart action.
+
+## Product Details Page
+
+Create a complete professional product page.
+
+Include:
+
+- Large product image gallery.
+- Image thumbnails.
+- Product title.
+- Price.
+- Original price.
+- Discount information.
+- Description.
+- Product specifications.
+- Variant selection.
+- Size selection where applicable.
+- Quantity selector.
+- Stock availability.
+- Add to cart.
+- Buy now.
+- Wishlist.
+- Shipping information.
+- Returns information.
+- Customer reviews.
+- Related products.
+- Recently viewed products.
+
+Variant selection must correctly affect price, availability, images, and cart information.
+
+## Shopping Cart
+
+Implement:
+
+- Cart drawer.
+- Full cart page.
+- Product image.
+- Product variant.
+- Quantity modification.
+- Remove item.
+- Subtotal.
+- Discount.
+- Shipping estimate.
+- Total.
+- Coupon input.
+- Continue shopping.
+- Proceed to checkout.
+
+Show proper empty-cart states.
+
+## Checkout Experience
+
+Create a clean multi-step checkout.
+
+Suggested steps:
+
+1. Customer information.
+2. Shipping address.
+3. Shipping method.
+4. Payment method.
+5. Order review.
+6. Order confirmation.
+
+Include:
+
+- Contact information.
+- Phone.
+- Country.
+- City.
+- Address.
+- Apartment or additional information.
+- Delivery instructions.
+- Order summary.
+- Discount calculation.
+- Shipping calculation.
+- Final total.
+
+Checkout must be mobile-friendly and easy to complete.
+
+Do not collect or store sensitive payment card details in the frontend.
+
+Real payment processing must be handled by a secure backend/payment provider.
+
+## Customer Authentication
+
+Create separate authentication pages inside each store.
+
+Suggested routes:
+
+- `/s/[storeSlug]/login`
+- `/s/[storeSlug]/register`
+- `/s/[storeSlug]/forgot-password`
+- `/s/[storeSlug]/account`
+
+Customers must be associated with the correct store.
+
+Support:
+
+- Registration.
+- Login.
+- Logout.
+- Forgot password.
+- Password reset.
+- Email verification where available.
+- Account profile.
+- Saved addresses.
+- Order history.
+- Order tracking.
+- Wishlist.
+- Account settings.
+
+A customer shopping in Store A should not automatically see their Store B account data unless a deliberately designed cross-store identity system exists.
+
+---
+
+# 11. Authentication & Access Control
+
+The platform needs three distinct authentication experiences.
+
+### Platform Admin Authentication
+
+Suggested route:
+
+`/admin/login`
+
+- Admin login.
+- Protected admin routes.
+- Session handling.
+- Role validation.
+- Logout.
+- Unauthorized access page.
+
+Admin registration must not be publicly available.
+
+### Merchant Authentication
+
+Suggested routes:
+
+- `/merchant/register`
+- `/merchant/login`
+- `/merchant/forgot-password`
+
+Support:
+
+- Merchant registration.
+- Merchant login.
+- Password recovery.
+- Email verification.
+- Account profile.
+- Store ownership.
+- Protected dashboard routes.
+
+### Store Customer Authentication
+
+Authentication must be scoped to the correct storefront and use the storefront's identity context.
+
+### Authentication Architecture Requirements
+
+- Use the existing authentication backend if available.
+- Centralize authentication state.
+- Centralize permission checks.
+- Create protected route/layout logic.
+- Handle loading and expired sessions.
+- Handle unauthorized access.
+- Avoid duplicated authentication code.
+- Never rely on client-side role checks as the only security mechanism.
+- Backend must enforce actual authorization and tenant isolation.
+
+The frontend should provide an authentication abstraction layer that can connect to the real backend cleanly.
+
+---
+
+# 12. Arabic & English — Full Internationalization
+
+The entire application must support Arabic and English.
+
+This is a core requirement, not a secondary enhancement.
+
+### Arabic
+
+- Full RTL layout.
+- Correct navigation direction.
+- Right-aligned text where appropriate.
+- Correct spacing and positioning.
+- Proper Arabic font.
+- Arabic number and currency formatting when selected.
+- RTL-friendly tables, forms, drawers, and menus.
+
+### English
+
+- Complete LTR layout.
+- Correct English typography.
+- Natural English content.
+- Correct navigation and spacing.
+
+### Language Switching
+
+Provide a visible language switcher.
+
+The selected language should be retained across navigation and sessions.
+
+Use a centralized internationalization system.
+
+Do not hardcode translated text throughout the components.
+
+Do not simply translate text while leaving the layout in the wrong direction.
+
+Every page and component must be tested in both RTL and LTR.
+
+---
+
+# 13. Design System & Visual Quality
+
+The design must look like a professionally funded SaaS product.
+
+Avoid generic AI-generated dashboard designs.
+
+### Design Principles
+
+- Modern.
+- Premium.
+- Clean.
+- Minimal but functional.
+- Strong visual hierarchy.
+- Consistent spacing.
+- High-quality typography.
+- Balanced colors.
+- Clear data visualization.
+- Professional forms and tables.
+- Excellent responsive behavior.
+
+### Design System
+
+Create centralized design tokens for:
+
+- Colors.
+- Typography.
+- Font sizes.
+- Spacing.
+- Shadows.
+- Borders.
+- Radius.
+- Breakpoints.
+- Buttons.
+- Inputs.
+- Cards.
+- Tables.
+- Dialogs.
+- Dropdowns.
+- Navigation.
+
+Create reusable components rather than duplicating UI code.
+
+### Typography
+
+Select suitable Arabic and English fonts.
+
+Typography must remain readable across dashboards, storefronts, and mobile screens.
+
+### Responsive Design
+
+All interfaces must work correctly on:
+
+- Desktop.
+- Laptop.
+- Tablet.
+- Mobile.
+
+Pay particular attention to the storefront's mobile shopping experience.
+
+### UI States
+
+Every important component must support:
+
+- Loading.
+- Skeleton loading.
+- Empty states.
+- Error states.
+- Success states.
+- Disabled states.
+- Validation errors.
+- Confirmation dialogs.
+- Toast notifications.
+
+Do not use alert() as the primary feedback system.
+
+---
+
+# 14. Suggested Frontend Architecture
+
+Adapt this structure to the repository's existing framework and routing conventions.
+
+Do not force a migration just to match this example.
+
+```text
+src/
+│
+├── app/
+│   ├── admin/
+│   │   ├── login/
+│   │   ├── dashboard/
+│   │   ├── merchants/
+│   │   ├── stores/
+│   │   ├── subscriptions/
+│   │   ├── analytics/
+│   │   └── settings/
+│   │
+│   ├── merchant/
+│   │   ├── login/
+│   │   ├── register/
+│   │   └── onboarding/
+│   │
+│   ├── dashboard/
+│   │   ├── overview/
+│   │   ├── products/
+│   │   ├── categories/
+│   │   ├── inventory/
+│   │   ├── orders/
+│   │   ├── customers/
+│   │   ├── discounts/
+│   │   ├── store-design/
+│   │   ├── analytics/
+│   │   ├── shipping/
+│   │   ├── payments/
+│   │   ├── staff/
+│   │   └── settings/
+│   │
+│   └── storefront/
+│       └── [storeSlug]/
+│           ├── page
+│           ├── products/
+│           ├── categories/
+│           ├── cart/
+│           ├── checkout/
+│           ├── login/
+│           ├── register/
+│           └── account/
+│
+├── components/
+│   ├── ui/
+│   ├── common/
+│   ├── admin/
+│   ├── merchant/
+│   ├── storefront/
+│   ├── forms/
+│   ├── charts/
+│   └── tables/
+│
+├── features/
+│   ├── authentication/
+│   ├── platform/
+│   ├── merchants/
+│   ├── stores/
+│   ├── products/
+│   ├── categories/
+│   ├── inventory/
+│   ├── orders/
+│   ├── customers/
+│   ├── discounts/
+│   ├── store-builder/
+│   ├── themes/
+│   ├── checkout/
+│   └── analytics/
+│
+├── layouts/
+│   ├── AdminLayout/
+│   ├── MerchantLayout/
+│   └── StorefrontLayout/
+│
+├── lib/
+│   ├── api/
+│   ├── auth/
+│   ├── permissions/
+│   ├── i18n/
+│   ├── theme/
+│   ├── validation/
+│   └── utils/
+│
+├── hooks/
+├── types/
+├── constants/
+├── locales/
+│   ├── ar/
+│   └── en/
+│
+└── styles/
+    ├── globals
+    ├── tokens
+    └── themes
+```
+
+This is a conceptual structure. Keep the codebase consistent with its current architecture.
+
+---
+
+# 15. Example User Journeys
+
+These examples are important for understanding the expected product experience.
+
+### Example 1: A New Brand Joins the Platform
+
+A clothing brand named NOVA registers.
+
+1. The owner opens the platform.
+2. Creates a merchant account.
+3. Enters the brand name: NOVA.
+4. Uploads the brand logo.
+5. Chooses the Fashion category.
+6. Selects a Minimal Fashion theme.
+7. Changes the primary color to black.
+8. Changes the background to white.
+9. Uploads a homepage banner.
+10. Creates categories for Men and Women.
+11. Adds products with sizes and colors.
+12. Configures shipping and payment settings.
+13. Previews the storefront.
+14. Publishes the store.
+
+Result:
+
+NOVA now has its own independent branded online store.
+
+### Example 2: A Customer Purchases a Product
+
+1. A customer visits NOVA's storefront.
+2. Browses the Men's category.
+3. Opens a hoodie product.
+4. Selects Black / Medium.
+5. Adds the product to the cart.
+6. Opens checkout.
+7. Enters contact and delivery information.
+8. Selects an available payment method.
+9. Reviews the order.
+10. Places the order.
+11. Receives an order confirmation.
+12. Can track the order from the account page.
+
+The order must appear in NOVA's merchant dashboard.
+
+### Example 3: Platform Administrator
+
+1. The platform administrator logs in.
+2. Opens the main dashboard.
+3. Reviews total merchants and stores.
+4. Opens the merchant directory.
+5. Views NOVA's details.
+6. Reviews the store's subscription.
+7. Checks platform activity and performance.
+8. Manages account or subscription status when required.
+
+These journeys should be implemented as connected application flows, not isolated screens.
+
+---
+
+# 16. Data & Backend Integration Rules
+
+The current task is focused on frontend development.
+
+However, the frontend must be designed to integrate with the actual backend.
+
+Important requirements:
+
+- Inspect existing API endpoints before implementation.
+- Use a centralized API service.
+- Use typed request and response structures.
+- Keep data fetching separate from UI components.
+- Handle API errors consistently.
+- Handle authentication tokens and sessions securely.
+- Support pagination and filtering.
+- Avoid hardcoded business logic.
+- Avoid duplicating backend calculations.
+- Do not assume an API endpoint exists without verifying it.
+
+If some backend functionality is unavailable:
+
+1. Build the complete interface.
+2. Define the expected API contract.
+3. Create a clearly separated development data adapter if necessary.
+4. Label development/demo data clearly.
+5. Make replacing demo data with real API integration straightforward.
+
+Do not fake successful operations or claim that a feature is connected when it is not.
+
+### Multi-Tenant Data Isolation
+
+Every merchant-owned resource must have a clear store or tenant context.
+
+Examples:
+
+- Products.
+- Categories.
+- Orders.
+- Customers.
+- Discounts.
+- Theme settings.
+- Store configuration.
+
+The storefront must load the correct store based on its slug or domain.
+
+Tenant isolation must also be enforced by the backend, not just by frontend filtering.
+
+---
+
+# 17. Quality Requirements
+
+Do not deliver a collection of disconnected pages.
+
+The platform must have consistent navigation and working user flows.
+
+### Functional Requirements
+
+- All navigation links must work.
+- All important buttons must have real behavior.
+- Forms must have validation.
+- Search and filters must work on implemented data.
+- Dialogs must open and close correctly.
+- Theme editing must update the preview.
+- Language switching must update both content and layout.
+- Merchant pages must use the correct store context.
+- Customer pages must use the correct storefront context.
+- Access to protected pages must be handled correctly.
+
+### Engineering Requirements
+
+- Reusable components.
+- Strong TypeScript types where supported by the project.
+- Clean component architecture.
+- No unnecessary duplication.
+- No large monolithic components.
+- Centralized error handling.
+- Maintainable state management.
+- Accessible controls.
+- Responsive behavior.
+- Consistent naming conventions.
+
+### Testing & Verification
+
+After implementation:
+
+- Run the production build.
+- Run linting.
+- Run existing tests.
+- Add tests for important frontend behavior.
+- Check all main routes.
+- Check Arabic RTL.
+- Check English LTR.
+- Check mobile layouts.
+- Check authentication and protected routes.
+- Check theme customization.
+- Fix console errors and broken links.
+
+Do not mark a feature complete without verifying its behavior.
+
+---
+
+# 18. Development Execution Plan
+
+Implement the project through the following phases.
+
+### Phase 1 — Foundation & Design System
+
+- Repository analysis.
+- Routing architecture.
+- Design tokens.
+- Shared UI components.
+- Main layouts.
+- Authentication foundations.
+- Arabic/English localization.
+- Responsive foundations.
+
+### Phase 2 — Platform Admin
+
+Implement the complete administration experience.
+
+### Phase 3 — Merchant Dashboard
+
+Implement:
+
+- Overview.
+- Products.
+- Categories.
+- Inventory.
+- Orders.
+- Customers.
+- Discounts.
+- Analytics.
+- Settings.
+
+### Phase 4 — Store Builder
+
+Implement:
+
+- Themes.
+- Brand customization.
+- Homepage section editor.
+- Live preview.
+- Desktop/mobile preview.
+- Save and publish experience.
+
+### Phase 5 — Storefront
+
+Implement the complete customer shopping journey:
+
+- Homepage.
+- Categories.
+- Product listing.
+- Product details.
+- Search.
+- Cart.
+- Checkout.
+- Customer authentication.
+- Customer account.
+
+### Phase 6 — Integration & Final Polish
+
+- Connect available APIs.
+- Replace development data where possible.
+- Verify role-based access.
+- Verify tenant context.
+- Verify RTL/LTR.
+- Optimize responsive layouts.
+- Test main user journeys.
+- Resolve remaining defects.
+
+Prioritize a cohesive, working product over adding many incomplete features.
+
+---
+
+# 19. Final Instructions
+
+1. Treat this as a real commercial SaaS product, not a university project or UI prototype.
+2. Focus on excellent UX and a professional visual identity.
+3. Do not build all three user experiences using one generic dashboard.
+4. Give each user type its own layout, navigation, workflows, and permissions.
+5. Make the merchant's store customization experience a first-class feature.
+6. Make each storefront feel like an independent brand website.
+7. Ensure that Arabic and English both receive equal design quality.
+8. Avoid unnecessary dependencies.
+9. Preserve existing working code.
+10. Do not remove functionality without a reason.
+11. Do not create fake backend integrations.
+12. Do not leave important buttons or forms inactive.
+13. Do not stop after the first phase.
+14. Work incrementally, verify each phase, and maintain a clear record of completed and remaining functionality.
+
+## Expected Final Deliverables
+
+At completion, the project should contain:
+
+- A complete Platform Admin interface.
+- A complete Merchant Dashboard.
+- A complete Customer Storefront.
+- Three distinct authentication experiences.
+- A professional store customization system.
+- A configurable theme architecture.
+- Product and inventory management interfaces.
+- Complete order management interfaces.
+- Shopping cart and checkout flows.
+- Customer account and order tracking interfaces.
+- Full Arabic and English support.
+- Fully responsive layouts.
+- Reusable components and maintainable architecture.
+- Proper API integration boundaries.
+- A clear implementation and testing report.
+
+**Final Goal: Build a scalable, premium, multi-tenant e-commerce SaaS platform that can eventually compete with modern store-building platforms in the regional market.**

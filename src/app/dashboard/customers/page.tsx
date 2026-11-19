@@ -1,262 +1,239 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import { Button } from "@/components/ui/Button"
-import { Card, CardContent } from "@/components/ui/Card"
-import { getMerchantDashboardDataAction } from "@/server/actions/store"
-import { buildWhatsAppLink } from "@/lib/whatsapp"
-import { formatPrice } from "@/lib/utils"
-import type { Customer, Store } from "@/types/domain"
-import {
-  Users,
-  Search,
-  MessageCircle,
-  Download,
-  ShoppingBag,
-  MapPin,
-} from "lucide-react"
-import { toast } from "sonner"
+import React, { useState, useMemo } from "react"
+import Link from "next/link"
+import { Search, User, Mail, Phone, X } from "lucide-react"
+import { useActiveMerchantStore } from "@/components/merchant/useActiveMerchantStore"
+import { useI18n } from "@/components/providers/LanguageProvider"
+import { StatusText } from "@/components/common/StatusText"
+import { formatOrderStatusLabel } from "@/lib/i18n/translations"
+import type { CustomerSegment, StoreCustomer } from "@/types/saas"
 
-export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [store, setStore] = useState<Store | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
+export default function MerchantCustomersPage() {
+  const { locale, pick, formatCurrency } = useI18n()
+  const { store, storeCustomers, storeOrders } = useActiveMerchantStore()
 
-  useEffect(() => {
-    getMerchantDashboardDataAction()
-      .then((data) => {
-        setCustomers(data.customers)
-        setStore(data.store)
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }, [])
+  const [query, setQuery] = useState("")
+  const [segmentFilter, setSegmentFilter] = useState<"all" | CustomerSegment>("all")
+  const [selectedCustomer, setSelectedCustomer] = useState<StoreCustomer | null>(null)
 
-  const filteredCustomers = customers.filter(
-    (c) =>
-      c.name.includes(searchTerm) ||
-      c.phone.includes(searchTerm) ||
-      c.city.includes(searchTerm)
-  )
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return storeCustomers.filter((c) => {
+      const matchQ =
+        !q ||
+        c.name.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q) ||
+        c.phone.toLowerCase().includes(q)
+      const matchSeg = segmentFilter === "all" || c.segment === segmentFilter
+      return matchQ && matchSeg
+    })
+  }, [storeCustomers, query, segmentFilter])
 
-  const totalCompletedOrders = customers.reduce(
-    (sum, c) => sum + c.totalOrders,
-    0
-  )
-  const uniqueCitiesCount = new Set(customers.map((c) => c.city)).size
+  if (!store) return null
+  const currency = store.localization.currency
 
-  const handleExportCsv = () => {
-    if (customers.length === 0) {
-      toast.error("لا توجد بيانات عملاء لتصديرها")
-      return
+  const segmentLabel = (seg: CustomerSegment) => {
+    switch (seg) {
+      case "vip":
+        return pick("عميل VIP", "VIP")
+      case "returning":
+        return pick("متكرر", "Returning")
+      case "at_risk":
+        return pick("معرض للفقد", "At Risk")
+      case "new":
+      default:
+        return pick("جديد", "New")
     }
-
-    const headers = ["الاسم", "رقم الموبايل", "المحافظة", "عدد الأوردرات", "إجمالي المشتريات", "آخر أوردر", "التصنيف"]
-    const rows = customers.map((c) => [
-      `"${c.name}"`,
-      `"${c.phone}"`,
-      `"${c.city}"`,
-      c.totalOrders,
-      c.totalSpent,
-      `"${c.lastOrder}"`,
-      `"${c.tag}"`,
-    ])
-
-    // UTF-8 BOM for Arabic Excel compatibility
-    const csvContent =
-      "\uFEFF" +
-      [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.setAttribute(
-      "download",
-      `customers-${store?.slug || "store"}-${new Date().toISOString().slice(0, 10)}.csv`
-    )
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-
-    toast.success("تم تصدير ملف العملاء بنجاح!")
   }
 
-  const storeName = store?.name || "متجر كايرو كوتور"
+  const customerOrders = selectedCustomer
+    ? storeOrders.filter(
+        (o) =>
+          o.customerId === selectedCustomer.id ||
+          o.customerEmail.toLowerCase() === selectedCustomer.email.toLowerCase()
+      )
+    : []
 
   return (
-    <div className="space-y-6 text-right">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-foreground">
-            قائمة عملاء متجرك
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            سجل منظم لجميع العملاء الذين طلبوا من متجرك مع تفاصيل مشترياتهم
-          </p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {pick("دليل عملاء المتجر", "Store Customer Directory")}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {pick(
+            "عرض العملاء المسجلين في هذا المتجر فقط مع شرائح الإنفاق وسجل طلباتهم.",
+            "Tenant-isolated customer profiles, spending segments, and order history."
+          )}
+        </p>
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl p-4 flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="w-4 h-4 text-muted-foreground absolute top-1/2 -translate-y-1/2 start-3" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={pick("ابحث بالاسم أو البريد أو الهاتف...", "Search name, email, or phone...")}
+            className="w-full h-10 rounded-xl border border-border bg-background ps-9 pe-3 text-sm"
+          />
         </div>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleExportCsv}
-          className="font-bold gap-2"
-        >
-          <Download className="w-4 h-4" />
-          <span>تصدير القائمة (Excel)</span>
-        </Button>
+        <div className="flex flex-wrap gap-1.5">
+          {(["all", "vip", "returning", "new", "at_risk"] as const).map((seg) => (
+            <button
+              key={seg}
+              type="button"
+              onClick={() => setSegmentFilter(seg)}
+              className={`h-9 px-3 rounded-xl text-xs font-semibold transition-colors ${
+                segmentFilter === seg
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border hover:bg-muted"
+              }`}
+            >
+              {seg === "all" ? pick("الكل", "All") : segmentLabel(seg)}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Dynamic Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xl font-black text-foreground font-cairo">
-                {customers.length} عميل
-              </div>
-              <div className="text-xs text-muted-foreground">
-                إجمالي العملاء المسجلين
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-              <ShoppingBag className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xl font-black text-foreground font-cairo">
-                {totalCompletedOrders} أوردر
-              </div>
-              <div className="text-xs text-muted-foreground">
-                إجمالي الأوردرات المكتملة
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
-              <MapPin className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xl font-black text-foreground font-cairo">
-                {uniqueCitiesCount} محافظات
-              </div>
-              <div className="text-xs text-muted-foreground">
-                مناطق وصول طلبات متجرك
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Search Input */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="relative w-full">
-            <input
-              type="text"
-              placeholder="ابحث باسم العميل، رقم التليفون، أو المحافظة..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-11 pr-10 pl-4 rounded-xl border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 text-right"
-            />
-            <Search className="w-4 h-4 text-muted-foreground absolute right-3.5 top-3.5" />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Customers Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-sm">
-              <thead className="bg-muted/40 text-muted-foreground text-xs font-bold border-b border-border">
-                <tr>
-                  <th className="py-3 px-4">العميل</th>
-                  <th className="py-3 px-4">رقم الموبايل</th>
-                  <th className="py-3 px-4">الموقع</th>
-                  <th className="py-3 px-4 text-center">الأوردرات</th>
-                  <th className="py-3 px-4">إجمالي المشتريات</th>
-                  <th className="py-3 px-4">آخر أوردر</th>
-                  <th className="py-3 px-4 text-center">تواصل سريع</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-8 text-muted-foreground">
-                      جاري تحميل العملاء...
-                    </td>
-                  </tr>
-                ) : filteredCustomers.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-8 text-muted-foreground">
-                      لا يوجد عملاء مطابقين للبحث
-                    </td>
-                  </tr>
-                ) : (
-                  filteredCustomers.map((cust) => (
-                    <tr
-                      key={cust.id}
-                      className="hover:bg-muted/30 transition-colors"
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
+                <th className="text-start py-3 px-4 font-semibold">{pick("العميل", "Customer")}</th>
+                <th className="text-start py-3 px-4 font-semibold">{pick("الشريحة", "Segment")}</th>
+                <th className="text-center py-3 px-4 font-semibold">{pick("الطلبات", "Orders")}</th>
+                <th className="text-end py-3 px-4 font-semibold">{pick("إجمالي الإنفاق", "Total Spend")}</th>
+                <th className="text-end py-3 px-4 font-semibold">{pick("الملف", "Profile")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtered.map((cust) => (
+                <tr key={cust.id} className="hover:bg-muted/30">
+                  <td className="py-3 px-4">
+                    <p className="font-semibold text-xs">{cust.name}</p>
+                    <p className="text-[11px] text-muted-foreground">{cust.email}</p>
+                  </td>
+                  <td className="py-3 px-4">
+                    <StatusText
+                      tone={
+                        cust.segment === "vip"
+                          ? "success"
+                          : cust.segment === "returning"
+                            ? "info"
+                            : cust.segment === "at_risk"
+                              ? "warning"
+                              : "neutral"
+                      }
+                      label={segmentLabel(cust.segment)}
+                    />
+                  </td>
+                  <td className="py-3 px-4 text-center font-mono text-xs tabular-nums">
+                    {cust.totalOrders}
+                  </td>
+                  <td className="py-3 px-4 text-end font-semibold tabular-nums text-xs">
+                    {formatCurrency(cust.totalSpent, currency)}
+                  </td>
+                  <td className="py-3 px-4 text-end">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCustomer(cust)}
+                      className="h-8 px-3 rounded-lg border border-border text-xs font-semibold hover:bg-muted"
                     >
-                      <td className="py-4 px-4">
-                        <div className="font-bold text-foreground">
-                          {cust.name}
-                        </div>
-                        <div className="text-[11px] text-primary font-semibold">
-                          {cust.tag}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 font-mono text-xs dir-ltr text-right">
-                        {cust.phone}
-                      </td>
-                      <td className="py-4 px-4 text-xs text-muted-foreground">
-                        {cust.city}
-                      </td>
-                      <td className="py-4 px-4 text-center font-bold font-cairo">
-                        {cust.totalOrders}
-                      </td>
-                      <td className="py-4 px-4 font-black text-foreground font-cairo">
-                        {formatPrice(cust.totalSpent)}
-                      </td>
-                      <td className="py-4 px-4 text-xs text-muted-foreground">
-                        {cust.lastOrder}
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <a
-                          href={buildWhatsAppLink(
-                            cust.phone,
-                            `مرحباً ${cust.name}، معاك ${storeName} على منصة متجرك`
-                          )}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white text-xs font-bold transition-colors"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          <span>واتساب</span>
-                        </a>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                      {pick("عرض التفاصيل", "View Profile")}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                    {pick("لا يوجد عملاء مطابقون.", "No matching customers found.")}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Customer Profile Drawer */}
+      {selectedCustomer && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex justify-end">
+          <div className="bg-card border-s border-border w-full max-w-md h-full overflow-y-auto p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div className="flex items-center gap-2.5">
+                <User className="w-5 h-5 text-primary" />
+                <h2 className="text-base font-bold">{selectedCustomer.name}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedCustomer(null)}
+                className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <p className="flex items-center gap-2 text-muted-foreground">
+                <Mail className="w-3.5 h-3.5" />
+                <span>{selectedCustomer.email}</span>
+              </p>
+              <p className="flex items-center gap-2 text-muted-foreground dir-ltr">
+                <Phone className="w-3.5 h-3.5" />
+                <span>{selectedCustomer.phone}</span>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3.5 rounded-xl bg-muted/50 border border-border">
+                <p className="text-[11px] text-muted-foreground">{pick("إجمالي الإنفاق", "Total Spend")}</p>
+                <p className="text-base font-bold tabular-nums mt-0.5">
+                  {formatCurrency(selectedCustomer.totalSpent, currency)}
+                </p>
+              </div>
+              <div className="p-3.5 rounded-xl bg-muted/50 border border-border">
+                <p className="text-[11px] text-muted-foreground">{pick("عدد الطلبات", "Total Orders")}</p>
+                <p className="text-base font-bold tabular-nums mt-0.5">
+                  {selectedCustomer.totalOrders}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                {pick("سجل طلبات العميل", "Order History")}
+              </h3>
+              {customerOrders.map((ord) => (
+                <Link
+                  key={ord.id}
+                  href={`/dashboard/orders/${ord.id}`}
+                  className="block p-3.5 rounded-xl border border-border hover:border-primary/40 transition-colors"
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-mono font-bold text-primary">{ord.orderNumber}</span>
+                    <span className="font-semibold tabular-nums">
+                      {formatCurrency(ord.total, currency)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1">
+                    <span>{ord.createdAt.slice(0, 10)}</span>
+                    <span>{formatOrderStatusLabel(ord.status, locale)}</span>
+                  </div>
+                </Link>
+              ))}
+              {customerOrders.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {pick("لم يقم العميل بأي طلبات بعد.", "No orders placed yet.")}
+                </p>
+              )}
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   )
 }
