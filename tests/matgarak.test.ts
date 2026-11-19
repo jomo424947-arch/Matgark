@@ -11,10 +11,16 @@ import {
   slugSchema,
   verifyOtpSchema,
   productInputSchema,
+  loginWithEmailSchema,
+  registerWithEmailSchema,
+  categoryInputSchema,
+  discountInputSchema,
+  inventoryAdjustmentSchema,
 } from "../src/lib/validation/schemas"
 
-// 3. Auth
+// 3. Auth & Passwords
 import { signSessionId, verifySessionToken } from "../src/server/auth/session"
+import { hashPassword, verifyPassword } from "../src/server/auth/passwords"
 
 describe("WhatsApp Utilities & Encoding", () => {
   test("normalizes diverse Egyptian phone formats to 201xxxxxxxxx", () => {
@@ -106,7 +112,7 @@ describe("Zod Validation Schemas", () => {
   })
 })
 
-describe("Session Security", () => {
+describe("Session Security & Password Hashing", () => {
   test("session token signing and verification works in constant-time", () => {
     const sessionId = "sess-test-123456"
     const signedToken = signSessionId(sessionId)
@@ -118,5 +124,77 @@ describe("Session Security", () => {
     // Tampered token fails
     const tampered = signedToken.slice(0, -3) + "xyz"
     assert.equal(verifySessionToken(tampered), null)
+  })
+
+  test("securely hashes and verifies passwords with scrypt and salt", () => {
+    const password = "SuperSecretPassword2026!"
+    const hash = hashPassword(password)
+    assert.ok(hash.includes(":"))
+
+    assert.equal(verifyPassword(password, hash), true)
+    assert.equal(verifyPassword("WrongPassword123", hash), false)
+    assert.equal(verifyPassword("", hash), false)
+  })
+})
+
+describe("Extended Schemas & Business Rules", () => {
+  test("validates email authentication schemas", () => {
+    const validLogin = loginWithEmailSchema.safeParse({
+      email: "Merchant@Example.COM",
+      password: "secretpassword",
+    })
+    assert.equal(validLogin.success, true)
+    if (validLogin.success) {
+      assert.equal(validLogin.data.email, "merchant@example.com")
+    }
+
+    const invalidEmail = loginWithEmailSchema.safeParse({
+      email: "not-an-email",
+      password: "secretpassword",
+    })
+    assert.equal(invalidEmail.success, false)
+
+    const shortPassword = loginWithEmailSchema.safeParse({
+      email: "test@example.com",
+      password: "123",
+    })
+    assert.equal(shortPassword.success, false)
+  })
+
+  test("validates category and discount schemas", () => {
+    const validCat = categoryInputSchema.safeParse({
+      nameAr: "أزياء رجالية",
+      slug: "mens-fashion",
+      displayOrder: 1,
+      isActive: true,
+    })
+    assert.equal(validCat.success, true)
+
+    const validDiscount = discountInputSchema.safeParse({
+      code: "winter2026",
+      type: "percentage",
+      value: 20,
+      minOrderValue: 500,
+    })
+    assert.equal(validDiscount.success, true)
+    if (validDiscount.success) {
+      assert.equal(validDiscount.data.code, "WINTER2026")
+    }
+  })
+
+  test("validates inventory adjustment schema", () => {
+    const validAdjustment = inventoryAdjustmentSchema.safeParse({
+      productId: "prod-123",
+      changeQty: -5,
+      reason: "تالف في الشحن",
+    })
+    assert.equal(validAdjustment.success, true)
+
+    const missingReason = inventoryAdjustmentSchema.safeParse({
+      productId: "prod-123",
+      changeQty: 10,
+      reason: "",
+    })
+    assert.equal(missingReason.success, false)
   })
 })

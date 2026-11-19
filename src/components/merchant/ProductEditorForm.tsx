@@ -9,6 +9,7 @@ import { useActiveMerchantStore } from "@/components/merchant/useActiveMerchantS
 import { usePlatformStore } from "@/stores/platformStore"
 import { useI18n } from "@/components/providers/LanguageProvider"
 import { ProductVisual } from "@/components/common/ProductVisual"
+import { createProductAction, updateProductAction } from "@/server/actions/products"
 import type { CatalogProduct, CatalogVariant, ProductPublishStatus } from "@/types/saas"
 
 const VISUAL_TYPES: { id: CatalogProduct["visualType"]; label: string }[] = [
@@ -190,6 +191,38 @@ export function ProductEditorForm({ existingProduct }: ProductEditorFormProps) {
       featured,
       bestSeller,
       newArrival,
+    }
+
+    // Sync to Supabase Database via Server Action
+    try {
+      if (existingProduct) {
+        updateProductAction(existingProduct.id, {
+          name: cleanNameAr,
+          price: basePrice,
+          category: categoryId || "عام",
+          description: descriptionAr.trim(),
+          variants: variants.map((v) => ({
+            id: v.id,
+            size: v.size || "قياسي",
+            color: v.color || "افتراضي",
+            stock: Math.max(0, Number(v.stock) || 0),
+          })),
+        }).catch(() => {})
+      } else {
+        createProductAction({
+          name: cleanNameAr,
+          price: basePrice,
+          category: categoryId || "عام",
+          description: descriptionAr.trim(),
+          variants: variants.map((v) => ({
+            size: v.size || "قياسي",
+            color: v.color || "افتراضي",
+            stock: Math.max(0, Number(v.stock) || 0),
+          })),
+        }).catch(() => {})
+      }
+    } catch {
+      // Graceful fallback
     }
 
     if (existingProduct) {

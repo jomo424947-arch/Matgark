@@ -19,6 +19,7 @@ import { useAuthStore } from "@/stores/authStore"
 import { useI18n } from "@/components/providers/LanguageProvider"
 import { calculateShippingFee, evaluateDiscountCode } from "@/lib/commerce/engine"
 import { ProductVisual } from "@/components/common/ProductVisual"
+import { placeOrderAction } from "@/server/actions/orders"
 import type { PaymentMethodType, StoreOrder } from "@/types/saas"
 
 const STEPS = [
@@ -228,7 +229,28 @@ export default function StorefrontCheckoutPage() {
     setStep((s) => Math.min(5, s + 1))
   }
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
+    // 1. Submit to Supabase Database via Server Action
+    try {
+      await placeOrderAction({
+        storeSlug,
+        customerName: fullName.trim(),
+        customerPhone: phone.trim(),
+        customerCity: city.trim(),
+        customerAddress: `${street.trim()}${apartment.trim() ? ` - شقة ${apartment.trim()}` : ""}`,
+        customerNotes: deliveryInstructions.trim() || undefined,
+        items: items.map((i) => ({
+          productId: i.productId,
+          variantId: i.variantId,
+          size: i.variantLabel || "قياسي",
+          color: "افتراضي",
+          quantity: i.quantity,
+        })),
+      })
+    } catch {
+      // Continue gracefully
+    }
+
     const created = placeStorefrontOrder({
       storeId: store.id,
       customerId: customerRecord?.id,
