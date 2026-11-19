@@ -5,6 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://sgbrenakklawsfbhenaj.supabase.co";
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 // Load .env if present
 try {
   const envPath = path.resolve(process.cwd(), ".env");
@@ -23,7 +25,7 @@ try {
       }
     }
   }
-} catch {}
+} catch { }
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -456,5 +458,7 @@ async function seed() {
   console.log("   Merchant phone: 01012345678");
   console.log("   Store slug: cairo-couture");
 }
+
+seed().catch(console.error);
 
 seed().catch(console.error);
