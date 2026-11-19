@@ -29,6 +29,10 @@ export const PRODUCT_STATUS_BADGE_MAP: Record<ProductStatus, BadgeVariant> = {
 export interface User {
   id: string
   phone: string
+  email?: string
+  passwordHash?: string
+  name?: string
+  role?: string
   createdAt: string
 }
 
@@ -134,6 +138,62 @@ export interface Store {
   logoUrl?: string
   orderSeq: number
   plan: "free" | "pro"
+  themeConfig?: Record<string, unknown>
+  sectionsConfig?: unknown[]
+  paymentConfig?: Record<string, unknown>
+  currency?: string
+  primaryLocale?: string
+  status?: string
+  createdAt: string
+}
+
+export interface Category {
+  id: string
+  storeId: string
+  nameAr: string
+  nameEn?: string
+  slug: string
+  description?: string
+  displayOrder: number
+  isActive: boolean
+  createdAt: string
+}
+
+export interface Discount {
+  id: string
+  storeId: string
+  code: string
+  type: "percentage" | "fixed" | "free_shipping"
+  value: number
+  minOrderValue: number
+  maxDiscount?: number
+  usageLimit?: number
+  usedCount: number
+  expiresAt?: string
+  isActive: boolean
+  createdAt: string
+}
+
+export interface StaffMember {
+  id: string
+  storeId: string
+  userId?: string
+  name: string
+  email: string
+  role: "owner" | "manager" | "staff"
+  status: "active" | "invited"
+  createdAt: string
+}
+
+export interface InventoryLogEntry {
+  id: string
+  storeId: string
+  productId: string
+  variantId?: string
+  changeQty: number
+  newStock: number
+  reason: string
+  actor?: string
   createdAt: string
 }
 

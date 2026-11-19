@@ -11,6 +11,10 @@ import type {
   ProductVariant,
   OrderItem,
   OrderStatusHistoryEntry,
+  Category,
+  Discount,
+  StaffMember,
+  InventoryLogEntry,
 } from "@/types/domain"
 import { supabaseAdmin } from "@/server/db/supabase"
 
@@ -39,8 +43,12 @@ export function computeProductStockAndStatus(variants: ProductVariant[]): {
 function rowToUser(r: Record<string, unknown>): User {
   return {
     id: r.id as string,
-    phone: r.phone as string,
-    createdAt: r.created_at as string,
+    phone: (r.phone as string) || "",
+    email: (r.email as string) || undefined,
+    passwordHash: (r.password_hash as string) || undefined,
+    name: (r.name as string) || undefined,
+    role: (r.role as string) || "merchant",
+    createdAt: (r.created_at as string) || new Date().toISOString(),
   }
 }
 
@@ -51,17 +59,81 @@ function rowToStore(r: Record<string, unknown>): Store {
     name: r.name as string,
     slug: r.slug as string,
     slogan: (r.slogan as string) || undefined,
-    phone: r.phone as string,
-    whatsapp: r.whatsapp as string,
-    deliveryType: r.delivery_type as "flat" | "by_city",
-    flatFee: r.flat_fee as number,
+    phone: (r.phone as string) || "",
+    whatsapp: (r.whatsapp as string) || "",
+    deliveryType: (r.delivery_type as "flat" | "by_city") || "flat",
+    flatFee: typeof r.flat_fee === "number" ? r.flat_fee : 40,
     freeAbove: (r.free_above as number) ?? null,
     cityFees: (r.city_fees as Record<string, number>) || undefined,
-    themeColor: r.theme_color as string,
+    themeColor: (r.theme_color as string) || "#E8732A",
     logoUrl: (r.logo_url as string) || undefined,
-    orderSeq: r.order_seq as number,
-    plan: r.plan as "free" | "pro",
-    createdAt: r.created_at as string,
+    orderSeq: typeof r.order_seq === "number" ? r.order_seq : 1000,
+    plan: (r.plan as "free" | "pro") || "free",
+    themeConfig: (r.theme_config as Record<string, unknown>) || undefined,
+    sectionsConfig: (r.sections_config as unknown[]) || undefined,
+    paymentConfig: (r.payment_config as Record<string, unknown>) || undefined,
+    currency: (r.currency as string) || "EGP",
+    primaryLocale: (r.primary_locale as string) || "ar",
+    status: (r.status as string) || "published",
+    createdAt: (r.created_at as string) || new Date().toISOString(),
+  }
+}
+
+function rowToCategory(r: Record<string, unknown>): Category {
+  return {
+    id: r.id as string,
+    storeId: r.store_id as string,
+    nameAr: r.name_ar as string,
+    nameEn: (r.name_en as string) || undefined,
+    slug: r.slug as string,
+    description: (r.description as string) || undefined,
+    displayOrder: (r.display_order as number) || 0,
+    isActive: r.is_active !== false,
+    createdAt: (r.created_at as string) || new Date().toISOString(),
+  }
+}
+
+function rowToDiscount(r: Record<string, unknown>): Discount {
+  return {
+    id: r.id as string,
+    storeId: r.store_id as string,
+    code: r.code as string,
+    type: r.type as "percentage" | "fixed" | "free_shipping",
+    value: r.value as number,
+    minOrderValue: (r.min_order_value as number) || 0,
+    maxDiscount: (r.max_discount as number) || undefined,
+    usageLimit: (r.usage_limit as number) || undefined,
+    usedCount: (r.used_count as number) || 0,
+    expiresAt: (r.expires_at as string) || undefined,
+    isActive: r.is_active !== false,
+    createdAt: (r.created_at as string) || new Date().toISOString(),
+  }
+}
+
+function rowToStaff(r: Record<string, unknown>): StaffMember {
+  return {
+    id: r.id as string,
+    storeId: r.store_id as string,
+    userId: (r.user_id as string) || undefined,
+    name: r.name as string,
+    email: r.email as string,
+    role: (r.role as "owner" | "manager" | "staff") || "staff",
+    status: (r.status as "active" | "invited") || "active",
+    createdAt: (r.created_at as string) || new Date().toISOString(),
+  }
+}
+
+function rowToInventoryLog(r: Record<string, unknown>): InventoryLogEntry {
+  return {
+    id: r.id as string,
+    storeId: r.store_id as string,
+    productId: r.product_id as string,
+    variantId: (r.variant_id as string) || undefined,
+    changeQty: r.change_qty as number,
+    newStock: r.new_stock as number,
+    reason: r.reason as string,
+    actor: (r.actor as string) || undefined,
+    createdAt: (r.created_at as string) || new Date().toISOString(),
   }
 }
 
@@ -155,6 +227,67 @@ export async function getUserByPhone(phone: string): Promise<User | null> {
 
   if (error || !data) return null
   return rowToUser(data)
+}
+
+export async function getUserByEmail(email: string): Promise<User | null> {
+  const clean = email.toLowerCase().trim()
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select("*")
+    .eq("email", clean)
+    .maybeSingle()
+
+  if (error || !data) return null
+  return rowToUser(data)
+}
+
+export async function createUserWithEmail(input: {
+  email: string
+  passwordHash: string
+  name?: string
+  phone?: string
+  role?: string
+}): Promise<User> {
+  const cleanEmail = input.email.toLowerCase().trim()
+  const payload: Record<string, unknown> = {
+    email: cleanEmail,
+    password_hash: input.passwordHash,
+    name: input.name || null,
+    phone: input.phone || `temp-${Date.now()}`,
+    role: input.role || "merchant",
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .insert(payload)
+    .select()
+    .single()
+
+  if (error) {
+    // If the database has not executed migration 0002 yet, fall back gracefully
+    const fallbackPhone = input.phone || `010${Date.now().toString().slice(-8)}`
+    const { data: fbData, error: fbErr } = await supabaseAdmin
+      .from("users")
+      .upsert({ phone: fallbackPhone }, { onConflict: "phone" })
+      .select()
+      .single()
+
+    if (fbErr) throw new Error(`Failed to create user: ${error.message || fbErr.message}`)
+    return rowToUser({ ...fbData, email: cleanEmail, name: input.name })
+  }
+
+  return rowToUser(data)
+}
+
+export async function updateUserPassword(
+  userId: string,
+  passwordHash: string
+): Promise<boolean> {
+  const { error } = await supabaseAdmin
+    .from("users")
+    .update({ password_hash: passwordHash })
+    .eq("id", userId)
+  return !error
 }
 
 export async function createUser(phone: string): Promise<User> {
@@ -257,6 +390,16 @@ export async function updateStore(
   if (updates.logoUrl !== undefined) dbUpdates.logo_url = updates.logoUrl
   if (updates.orderSeq !== undefined) dbUpdates.order_seq = updates.orderSeq
   if (updates.plan !== undefined) dbUpdates.plan = updates.plan
+  if (updates.themeConfig !== undefined)
+    dbUpdates.theme_config = updates.themeConfig
+  if (updates.sectionsConfig !== undefined)
+    dbUpdates.sections_config = updates.sectionsConfig
+  if (updates.paymentConfig !== undefined)
+    dbUpdates.payment_config = updates.paymentConfig
+  if (updates.currency !== undefined) dbUpdates.currency = updates.currency
+  if (updates.primaryLocale !== undefined)
+    dbUpdates.primary_locale = updates.primaryLocale
+  if (updates.status !== undefined) dbUpdates.status = updates.status
 
   const { data, error } = await supabaseAdmin
     .from("stores")
@@ -1053,4 +1196,333 @@ export async function updateOrderStatusTransaction(
   })
 
   return getOrderById(orderId)
+}
+
+// ─────────────────────────────────────────────
+// Categories
+// ─────────────────────────────────────────────
+
+export async function getCategoriesByStore(
+  storeId: string
+): Promise<Category[]> {
+  const { data, error } = await supabaseAdmin
+    .from("categories")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("display_order", { ascending: true })
+
+  if (error || !data) return []
+  return data.map(rowToCategory)
+}
+
+export async function createCategory(
+  categoryData: Omit<Category, "id" | "createdAt">
+): Promise<Category> {
+  const { data, error } = await supabaseAdmin
+    .from("categories")
+    .insert({
+      store_id: categoryData.storeId,
+      name_ar: categoryData.nameAr,
+      name_en: categoryData.nameEn || null,
+      slug: categoryData.slug,
+      description: categoryData.description || null,
+      display_order: categoryData.displayOrder || 0,
+      is_active: categoryData.isActive,
+    })
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to create category: ${error.message}`)
+  return rowToCategory(data)
+}
+
+export async function updateCategory(
+  id: string,
+  updates: Partial<Category>
+): Promise<Category | null> {
+  const dbUpdates: Record<string, unknown> = {}
+  if (updates.nameAr !== undefined) dbUpdates.name_ar = updates.nameAr
+  if (updates.nameEn !== undefined) dbUpdates.name_en = updates.nameEn
+  if (updates.slug !== undefined) dbUpdates.slug = updates.slug
+  if (updates.description !== undefined)
+    dbUpdates.description = updates.description
+  if (updates.displayOrder !== undefined)
+    dbUpdates.display_order = updates.displayOrder
+  if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive
+
+  const { data, error } = await supabaseAdmin
+    .from("categories")
+    .update(dbUpdates)
+    .eq("id", id)
+    .select()
+    .maybeSingle()
+
+  if (error || !data) return null
+  return rowToCategory(data)
+}
+
+export async function deleteCategory(id: string): Promise<boolean> {
+  const { error } = await supabaseAdmin
+    .from("categories")
+    .delete()
+    .eq("id", id)
+  return !error
+}
+
+// ─────────────────────────────────────────────
+// Discounts
+// ─────────────────────────────────────────────
+
+export async function getDiscountsByStore(
+  storeId: string
+): Promise<Discount[]> {
+  const { data, error } = await supabaseAdmin
+    .from("discounts")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("created_at", { ascending: false })
+
+  if (error || !data) return []
+  return data.map(rowToDiscount)
+}
+
+export async function createDiscount(
+  discountData: Omit<Discount, "id" | "createdAt" | "usedCount">
+): Promise<Discount> {
+  const { data, error } = await supabaseAdmin
+    .from("discounts")
+    .insert({
+      store_id: discountData.storeId,
+      code: discountData.code.trim().toUpperCase(),
+      type: discountData.type,
+      value: discountData.value,
+      min_order_value: discountData.minOrderValue || 0,
+      max_discount: discountData.maxDiscount || null,
+      usage_limit: discountData.usageLimit || null,
+      used_count: 0,
+      expires_at: discountData.expiresAt || null,
+      is_active: discountData.isActive,
+    })
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to create discount: ${error.message}`)
+  return rowToDiscount(data)
+}
+
+export async function updateDiscount(
+  id: string,
+  updates: Partial<Discount>
+): Promise<Discount | null> {
+  const dbUpdates: Record<string, unknown> = {}
+  if (updates.code !== undefined) dbUpdates.code = updates.code.trim().toUpperCase()
+  if (updates.type !== undefined) dbUpdates.type = updates.type
+  if (updates.value !== undefined) dbUpdates.value = updates.value
+  if (updates.minOrderValue !== undefined)
+    dbUpdates.min_order_value = updates.minOrderValue
+  if (updates.maxDiscount !== undefined)
+    dbUpdates.max_discount = updates.maxDiscount
+  if (updates.usageLimit !== undefined)
+    dbUpdates.usage_limit = updates.usageLimit
+  if (updates.usedCount !== undefined)
+    dbUpdates.used_count = updates.usedCount
+  if (updates.expiresAt !== undefined)
+    dbUpdates.expires_at = updates.expiresAt
+  if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive
+
+  const { data, error } = await supabaseAdmin
+    .from("discounts")
+    .update(dbUpdates)
+    .eq("id", id)
+    .select()
+    .maybeSingle()
+
+  if (error || !data) return null
+  return rowToDiscount(data)
+}
+
+export async function deleteDiscount(id: string): Promise<boolean> {
+  const { error } = await supabaseAdmin
+    .from("discounts")
+    .delete()
+    .eq("id", id)
+  return !error
+}
+
+export async function validateDiscountCode(
+  storeId: string,
+  code: string,
+  cartSubtotal: number
+): Promise<{
+  valid: boolean
+  discount?: Discount
+  error?: string
+  discountAmount?: number
+}> {
+  const cleanCode = code.trim().toUpperCase()
+  const { data, error } = await supabaseAdmin
+    .from("discounts")
+    .select("*")
+    .eq("store_id", storeId)
+    .eq("code", cleanCode)
+    .maybeSingle()
+
+  if (error || !data) {
+    return { valid: false, error: "كود الخصم غير صحيح أو غير موجود" }
+  }
+
+  const discount = rowToDiscount(data)
+
+  if (!discount.isActive) {
+    return { valid: false, error: "كود الخصم غير مفعّل حالياً" }
+  }
+
+  if (discount.expiresAt && new Date(discount.expiresAt).getTime() < Date.now()) {
+    return { valid: false, error: "كود الخصم منتهي الصلاحية" }
+  }
+
+  if (discount.usageLimit && discount.usedCount >= discount.usageLimit) {
+    return { valid: false, error: "تم الوصول إلى الحد الأقصى لاستخدام كود الخصم" }
+  }
+
+  if (discount.minOrderValue && cartSubtotal < discount.minOrderValue) {
+    return {
+      valid: false,
+      error: `الحد الأدنى لتطبيق هذا الخصم هو ${discount.minOrderValue} ج.م`,
+    }
+  }
+
+  let discountAmount = 0
+  if (discount.type === "percentage") {
+    discountAmount = Math.round((cartSubtotal * discount.value) / 100)
+    if (discount.maxDiscount && discountAmount > discount.maxDiscount) {
+      discountAmount = discount.maxDiscount
+    }
+  } else if (discount.type === "fixed") {
+    discountAmount = Math.min(discount.value, cartSubtotal)
+  }
+
+  return { valid: true, discount, discountAmount }
+}
+
+// ─────────────────────────────────────────────
+// Inventory Adjustments & Logs
+// ─────────────────────────────────────────────
+
+export async function getInventoryLogsByStore(
+  storeId: string
+): Promise<InventoryLogEntry[]> {
+  const { data, error } = await supabaseAdmin
+    .from("inventory_logs")
+    .select("*")
+    .eq("store_id", storeId)
+    .order("created_at", { ascending: false })
+
+  if (error || !data) return []
+  return data.map(rowToInventoryLog)
+}
+
+export async function adjustProductStock(input: {
+  storeId: string
+  productId: string
+  variantId?: string
+  changeQty: number
+  reason: string
+  actor?: string
+}): Promise<{ ok: boolean; newStock?: number; error?: string }> {
+  const product = await getProductById(input.productId)
+  if (!product || product.storeId !== input.storeId) {
+    return { ok: false, error: "المنتج غير موجود" }
+  }
+
+  let finalStock = product.stock
+
+  if (input.variantId) {
+    const variant = product.variants.find((v) => v.id === input.variantId)
+    if (!variant) return { ok: false, error: "المتغير المطلوب غير موجود" }
+
+    const newVariantStock = Math.max(0, variant.stock + input.changeQty)
+    await supabaseAdmin
+      .from("product_variants")
+      .update({ stock: newVariantStock })
+      .eq("id", input.variantId)
+
+    const updatedVariants = product.variants.map((v) =>
+      v.id === input.variantId ? { ...v, stock: newVariantStock } : v
+    )
+    const { stock, status } = computeProductStockAndStatus(updatedVariants)
+    finalStock = stock
+
+    await supabaseAdmin
+      .from("products")
+      .update({ stock, status })
+      .eq("id", product.id)
+  } else {
+    finalStock = Math.max(0, product.stock + input.changeQty)
+    let status: ProductStatus = "نشط"
+    if (finalStock === 0) status = "نفذ المخزون"
+    else if (finalStock < 5) status = "مخزون منخفض"
+
+    await supabaseAdmin
+      .from("products")
+      .update({ stock: finalStock, status })
+      .eq("id", product.id)
+  }
+
+  // Insert log
+  await supabaseAdmin.from("inventory_logs").insert({
+    store_id: input.storeId,
+    product_id: input.productId,
+    variant_id: input.variantId || null,
+    change_qty: input.changeQty,
+    new_stock: finalStock,
+    reason: input.reason,
+    actor: input.actor || "التاجر",
+  })
+
+  return { ok: true, newStock: finalStock }
+}
+
+// ─────────────────────────────────────────────
+// Staff
+// ─────────────────────────────────────────────
+
+export async function getStaffByStore(
+  storeId: string
+): Promise<StaffMember[]> {
+  const { data, error } = await supabaseAdmin
+    .from("staff")
+    .select("*")
+    .eq("store_id", storeId)
+
+  if (error || !data) return []
+  return data.map(rowToStaff)
+}
+
+export async function addStaffMember(
+  staffData: Omit<StaffMember, "id" | "createdAt">
+): Promise<StaffMember> {
+  const { data, error } = await supabaseAdmin
+    .from("staff")
+    .insert({
+      store_id: staffData.storeId,
+      user_id: staffData.userId || null,
+      name: staffData.name,
+      email: staffData.email.toLowerCase().trim(),
+      role: staffData.role,
+      status: staffData.status || "active",
+    })
+    .select()
+    .single()
+
+  if (error) throw new Error(`Failed to add staff member: ${error.message}`)
+  return rowToStaff(data)
+}
+
+export async function deleteStaffMember(id: string): Promise<boolean> {
+  const { error } = await supabaseAdmin
+    .from("staff")
+    .delete()
+    .eq("id", id)
+  return !error
 }

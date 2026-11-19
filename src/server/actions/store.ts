@@ -180,3 +180,49 @@ export async function updateStoreSettingsAction(input: {
 
   return { ok: true, store: updated }
 }
+
+export async function updateStoreDesignAction(input: {
+  themeConfig?: Record<string, unknown>
+  sectionsConfig?: unknown[]
+}): Promise<{ ok: boolean; error?: string; store?: Store }> {
+  const { store } = await requireSessionContext()
+
+  const updated = await updateStore(store.id, {
+    themeConfig: input.themeConfig,
+    sectionsConfig: input.sectionsConfig,
+  })
+
+  if (!updated) {
+    return { ok: false, error: "فشل حفظ تصميم المتجر" }
+  }
+
+  await addAuditLog(
+    store.id,
+    "store_design_updated",
+    `Updated visual design and sections for ${updated.name}`
+  )
+
+  return { ok: true, store: updated }
+}
+
+export async function updatePaymentConfigAction(
+  paymentConfig: Record<string, unknown>
+): Promise<{ ok: boolean; error?: string; store?: Store }> {
+  const { store } = await requireSessionContext()
+
+  const updated = await updateStore(store.id, {
+    paymentConfig,
+  })
+
+  if (!updated) {
+    return { ok: false, error: "فشل حفظ إعدادات الدفع" }
+  }
+
+  await addAuditLog(
+    store.id,
+    "payment_config_updated",
+    `Updated payment settings for ${updated.name}`
+  )
+
+  return { ok: true, store: updated }
+}
