@@ -5,8 +5,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://sgbrenakklawsfbhenaj.supabase.co";
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 // Load .env if present
 try {
   const envPath = path.resolve(process.cwd(), ".env");
@@ -27,8 +25,8 @@ try {
   }
 } catch { }
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://sgbrenakklawsfbhenaj.supabase.co";
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   console.error("❌ Error: Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment or .env file.");
