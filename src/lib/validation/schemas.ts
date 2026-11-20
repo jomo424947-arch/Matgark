@@ -78,6 +78,26 @@ export const productInputSchema = z.object({
     .min(1, "يجب تحديد خيار مقاس ولون واحد على الأقل"),
 })
 
+export const updateProductInputSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "اسم المنتج يجب أن يكون حرفين على الأقل")
+    .max(120, "اسم المنتج طويل جداً")
+    .optional(),
+  price: z.coerce
+    .number()
+    .positive("السعر يجب أن يكون أكبر من صفر")
+    .optional(),
+  category: z.string().trim().min(1, "الفئة مطلوبة").optional(),
+  description: z.string().trim().max(1000).optional(),
+  image: z.string().optional(),
+  variants: z
+    .array(productVariantSchema)
+    .min(1, "يجب تحديد خيار مقاس ولون واحد على الأقل")
+    .optional(),
+})
+
 export const onboardingSchema = z.object({
   storeName: z.string().trim().min(2, "اسم المتجر مطلوب").max(60),
   storeSlug: slugSchema,
@@ -186,7 +206,9 @@ export const categoryInputSchema = z.object({
   isActive: z.boolean().default(true),
 })
 
-export const discountInputSchema = z.object({
+export const updateCategoryInputSchema = categoryInputSchema.partial()
+
+const discountBaseSchema = z.object({
   code: z
     .string()
     .trim()
@@ -201,6 +223,23 @@ export const discountInputSchema = z.object({
   expiresAt: z.string().optional(),
   isActive: z.boolean().default(true),
 })
+
+export const discountInputSchema = discountBaseSchema.refine(
+  (data) => data.type !== "percentage" || data.value <= 100,
+  {
+    message: "نسبة الخصم لا يمكن أن تتجاوز 100%",
+    path: ["value"],
+  }
+)
+
+export const updateDiscountInputSchema = discountBaseSchema.partial().refine(
+  (data) =>
+    data.type !== "percentage" || data.value === undefined || data.value <= 100,
+  {
+    message: "نسبة الخصم لا يمكن أن تتجاوز 100%",
+    path: ["value"],
+  }
+)
 
 export const inventoryAdjustmentSchema = z.object({
   productId: z.string().min(1, "معرف المنتج مطلوب"),

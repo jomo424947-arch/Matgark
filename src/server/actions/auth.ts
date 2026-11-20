@@ -19,7 +19,47 @@ import {
   getStoreBySlug,
   createStore,
 } from "@/server/db/client"
+import { isSupabaseConfigured } from "@/server/db/supabase"
 import { sanitizeSlug } from "@/lib/reserved-slugs"
+
+const DEMO_ACCOUNTS: Record<
+  string,
+  { password: string; brand: string; slug: string; phone: string; storeId: string }
+> = {
+  "karim@nova-atelier.com": {
+    password: "nova123",
+    brand: "نوفا أتيليه",
+    slug: "nova-atelier",
+    phone: "01011112222",
+    storeId: "store-nova",
+  },
+  "salma@luminabotanics.com": {
+    password: "lumina123",
+    brand: "لومينا بوتانيكس",
+    slug: "lumina-botanics",
+    phone: "01033334444",
+    storeId: "store-lumina",
+  },
+  "tarek@voltixtech.io": {
+    password: "voltix123",
+    brand: "فولتيكس تك",
+    slug: "voltix-tech",
+    phone: "01055556666",
+    storeId: "store-voltix",
+  },
+}
+
+export async function establishLocalDemoSessionAction(
+  merchantId: string,
+  storeId: string
+): Promise<{ ok: boolean }> {
+  // Strictly disabled whenever a real Supabase database is configured
+  if (isSupabaseConfigured) {
+    return { ok: false }
+  }
+  await createSessionCookie(merchantId, storeId)
+  return { ok: true }
+}
 
 export async function loginWithEmailAction(input: {
   email: string
@@ -28,6 +68,7 @@ export async function loginWithEmailAction(input: {
   ok: boolean
   error?: string
   redirectTo?: string
+  mode?: "supabase" | "local"
 }> {
   const parsed = loginWithEmailSchema.safeParse(input)
   if (!parsed.success) {
@@ -38,19 +79,33 @@ export async function loginWithEmailAction(input: {
   }
 
   const cleanEmail = parsed.data.email.toLowerCase().trim()
-  let user = await getUserByEmail(cleanEmail)
 
-  // Demo accounts fallback if user is not in database yet
-  const DEMO_ACCOUNTS: Record<string, { password: string; brand: string; slug: string; phone: string }> = {
-    "karim@nova-atelier.com": { password: "nova123", brand: "نوفا أتيليه", slug: "nova-atelier", phone: "01011112222" },
-    "salma@luminabotanics.com": { password: "lumina123", brand: "لومينا بوتانيكس", slug: "lumina-botanics", phone: "01033334444" },
-    "tarek@voltixtech.io": { password: "voltix123", brand: "فولتيكس تك", slug: "voltix-tech", phone: "01055556666" },
+  // Local dev adapter mode (Supabase env vars not set)
+  if (!isSupabaseConfigured) {
+    const demo = DEMO_ACCOUNTS[cleanEmail]
+    if (demo) {
+      if (parsed.data.password !== demo.password) {
+        return { ok: false, mode: "local", error: "كلمة المرور غير صحيحة" }
+      }
+      await createSessionCookie(`demo-${demo.slug}`, demo.storeId)
+      return { ok: true, mode: "local", redirectTo: "/dashboard" }
+    }
+    return {
+      ok: false,
+      mode: "local",
+      error: "لم يتم العثور على حساب مرتبط بهذا البريد الإلكتروني",
+    }
   }
 
-  if (!user && DEMO_ACCOUNTS[cleanEmail]) {
-    const demo = DEMO_ACCOUNTS[cleanEmail]
-    if (parsed.data.password === demo.password) {
-      // Auto-provision demo account into DB
+  try {
+    let user = await getUserByEmail(cleanEmail)
+
+    if (!user && DEMO_ACCOUNTS[cleanEmail]) {
+      const demo = DEMO_ACCOUNTS[cleanEmail]
+      if (parsed.data.password !== demo.password) {
+        return { ok: false, mode: "supabase", error: "كلمة المرور غير صحيحة" }
+      }
+
       const pwHash = hashPassword(demo.password)
       user = await createUserWithEmail({
         email: cleanEmail,
@@ -70,50 +125,61 @@ export async function loginWithEmailAction(input: {
           deliveryType: "flat",
           flatFee: 40,
           freeAbove: 1000,
-          themeColor: "#E8732A",
+          themeColor: "#945B2E",
           plan: "pro",
         })
       }
       await createSessionCookie(user.id, demoStore.id)
-      return { ok: true, redirectTo: "/dashboard" }
-    } else {
-      return { ok: false, error: "كلمة المرور غير صحيحة" }
+      return { ok: true, mode: "supabase", redirectTo: "/dashboard" }
     }
-  }
 
-  if (!user) {
-    return { ok: false, error: "لم يتم العثور على حساب مرتبط بهذا البريد الإلكتروني" }
-  }
-
-  if (user.passwordHash) {
-    const isValid = verifyPassword(parsed.data.password, user.passwordHash)
-    if (!isValid) {
-      return { ok: false, error: "كلمة المرور غير صحيحة" }
+    if (!user) {
+      return {
+        ok: false,
+        mode: "supabase",
+        error: "لم يتم العثور على حساب مرتبط بهذا البريد الإلكتروني",
+      }
     }
-  }
 
-  let store = await getStoreByOwnerId(user.id)
-  if (!store) {
-    const baseSlug = `store-${user.id.slice(0, 6)}`
-    store = await createStore({
-      ownerId: user.id,
-      name: user.name || `متجر ${user.email}`,
-      slug: baseSlug,
-      phone: user.phone || "01000000000",
-      whatsapp: user.phone || "01000000000",
-      deliveryType: "flat",
-      flatFee: 40,
-      freeAbove: 1000,
-      themeColor: "#E8732A",
-      plan: "free",
-    })
-  }
+    // Strictly require passwordHash for email+password authentication
+    if (!user.passwordHash || !verifyPassword(parsed.data.password, user.passwordHash)) {
+      return { ok: false, mode: "supabase", error: "كلمة المرور غير صحيحة" }
+    }
 
-  await createSessionCookie(user.id, store.id)
+    let store = await getStoreByOwnerId(user.id)
+    if (!store) {
+      let baseSlug = `store-${user.id.slice(0, 6)}`
+      if (await getStoreBySlug(baseSlug)) {
+        baseSlug = `${baseSlug}-${Date.now().toString(36).slice(-4)}`
+      }
+      store = await createStore({
+        ownerId: user.id,
+        name: user.name || `متجر ${user.email}`,
+        slug: baseSlug,
+        phone: user.phone || "01000000000",
+        whatsapp: user.phone || "01000000000",
+        deliveryType: "flat",
+        flatFee: 40,
+        freeAbove: 1000,
+        themeColor: "#945B2E",
+        plan: "free",
+      })
+    }
 
-  return {
-    ok: true,
-    redirectTo: "/dashboard",
+    await createSessionCookie(user.id, store.id)
+
+    return {
+      ok: true,
+      mode: "supabase",
+      redirectTo: "/dashboard",
+    }
+  } catch (err) {
+    console.error("[loginWithEmailAction] Error:", err)
+    return {
+      ok: false,
+      mode: "supabase",
+      error: "تعذر الاتصال بقاعدة البيانات حالياً. يرجى المحاولة مرة أخرى.",
+    }
   }
 }
 
@@ -128,6 +194,7 @@ export async function registerWithEmailAction(input: {
   ok: boolean
   error?: string
   redirectTo?: string
+  mode?: "supabase" | "local"
 }> {
   const parsed = registerWithEmailSchema.safeParse(input)
   if (!parsed.success) {
@@ -138,49 +205,71 @@ export async function registerWithEmailAction(input: {
   }
 
   const cleanEmail = parsed.data.email.toLowerCase().trim()
-  const existingUser = await getUserByEmail(cleanEmail)
-  if (existingUser) {
-    return {
-      ok: false,
-      error: "يوجد حساب مسجل بالفعل بهذا البريد الإلكتروني. يرجى تسجيل الدخول.",
-    }
-  }
-
   const cleanSlug = sanitizeSlug(parsed.data.slug)
-  const existingStore = await getStoreBySlug(cleanSlug)
-  if (existingStore) {
+
+  if (!isSupabaseConfigured) {
+    await createSessionCookie(`local-${Date.now()}`, `store-${cleanSlug}`)
     return {
-      ok: false,
-      error: "رابط هذا المتجر محجوز بالفعل لمتجر آخر. يرجى اختيار رابط مختلف.",
+      ok: true,
+      mode: "local",
+      redirectTo: "/merchant/onboarding",
     }
   }
 
-  const pwHash = hashPassword(parsed.data.password)
-  const user = await createUserWithEmail({
-    email: cleanEmail,
-    passwordHash: pwHash,
-    name: parsed.data.name,
-    phone: parsed.data.phone,
-  })
+  try {
+    const existingUser = await getUserByEmail(cleanEmail)
+    if (existingUser) {
+      return {
+        ok: false,
+        mode: "supabase",
+        error: "يوجد حساب مسجل بالفعل بهذا البريد الإلكتروني. يرجى تسجيل الدخول.",
+      }
+    }
 
-  const store = await createStore({
-    ownerId: user.id,
-    name: parsed.data.brandName,
-    slug: cleanSlug,
-    phone: parsed.data.phone || "01000000000",
-    whatsapp: parsed.data.phone || "01000000000",
-    deliveryType: "flat",
-    flatFee: 40,
-    freeAbove: 1000,
-    themeColor: "#E8732A",
-    plan: "free",
-  })
+    const existingStore = await getStoreBySlug(cleanSlug)
+    if (existingStore) {
+      return {
+        ok: false,
+        mode: "supabase",
+        error: "رابط هذا المتجر محجوز بالفعل لمتجر آخر. يرجى اختيار رابط مختلف.",
+      }
+    }
 
-  await createSessionCookie(user.id, store.id)
+    const pwHash = hashPassword(parsed.data.password)
+    const user = await createUserWithEmail({
+      email: cleanEmail,
+      passwordHash: pwHash,
+      name: parsed.data.name,
+      phone: parsed.data.phone,
+    })
 
-  return {
-    ok: true,
-    redirectTo: "/dashboard",
+    const store = await createStore({
+      ownerId: user.id,
+      name: parsed.data.brandName,
+      slug: cleanSlug,
+      phone: parsed.data.phone || "01000000000",
+      whatsapp: parsed.data.phone || "01000000000",
+      deliveryType: "flat",
+      flatFee: 40,
+      freeAbove: 1000,
+      themeColor: "#945B2E",
+      plan: "free",
+    })
+
+    await createSessionCookie(user.id, store.id)
+
+    return {
+      ok: true,
+      mode: "supabase",
+      redirectTo: "/merchant/onboarding",
+    }
+  } catch (err) {
+    console.error("[registerWithEmailAction] Error:", err)
+    return {
+      ok: false,
+      mode: "supabase",
+      error: "تعذر إنشاء الحساب حالياً. يرجى المحاولة مرة أخرى.",
+    }
   }
 }
 
@@ -221,35 +310,47 @@ export async function verifyOtpAction(
     return result
   }
 
-  // Find or create user
-  let user = await getUserByPhone(parsed.data.phone)
-  if (!user) {
-    user = await createUser(parsed.data.phone)
-  }
+  try {
+    // Find or create user
+    let user = await getUserByPhone(parsed.data.phone)
+    if (!user) {
+      user = await createUser(parsed.data.phone)
+    }
 
-  // Find or create merchant's store
-  let store = await getStoreByOwnerId(user.id)
-  if (!store) {
-    const baseSlug = `store-${parsed.data.phone.slice(-4)}`
-    store = await createStore({
-      ownerId: user.id,
-      name: `متجر ${parsed.data.phone}`,
-      slug: baseSlug,
-      phone: parsed.data.phone,
-      whatsapp: parsed.data.phone,
-      deliveryType: "flat",
-      flatFee: 40,
-      freeAbove: 1000,
-      themeColor: "#E8732A",
-      plan: "free",
-    })
-  }
+    // Find or create merchant's store (avoiding slug collisions)
+    let store = await getStoreByOwnerId(user.id)
+    if (!store) {
+      let candidateSlug = `store-${parsed.data.phone.slice(-4)}`
+      const existing = await getStoreBySlug(candidateSlug)
+      if (existing) {
+        candidateSlug = `${candidateSlug}-${Date.now().toString(36).slice(-4)}`
+      }
+      store = await createStore({
+        ownerId: user.id,
+        name: `متجر ${parsed.data.phone}`,
+        slug: candidateSlug,
+        phone: parsed.data.phone,
+        whatsapp: parsed.data.phone,
+        deliveryType: "flat",
+        flatFee: 40,
+        freeAbove: 1000,
+        themeColor: "#945B2E",
+        plan: "free",
+      })
+    }
 
-  await createSessionCookie(user.id, store.id)
+    await createSessionCookie(user.id, store.id)
 
-  return {
-    ok: true,
-    redirectTo: "/dashboard",
+    return {
+      ok: true,
+      redirectTo: "/dashboard",
+    }
+  } catch (err) {
+    console.error("[verifyOtpAction] Database error:", err)
+    return {
+      ok: false,
+      error: "تعذر إتمام تسجيل الدخول حالياً. يرجى المحاولة مرة أخرى.",
+    }
   }
 }
 
@@ -273,39 +374,47 @@ export async function registerMerchantAction(input: {
     }
   }
 
-  const cleanSlug = sanitizeSlug(parsed.data.slug)
-  const existingStore = await getStoreBySlug(cleanSlug)
-  if (existingStore) {
+  try {
+    const cleanSlug = sanitizeSlug(parsed.data.slug)
+    const existingStore = await getStoreBySlug(cleanSlug)
+    if (existingStore) {
+      return {
+        ok: false,
+        error: "رابط هذا المتجر محجوز بالفعل لمتجر آخر. يرجى اختيار رابط مختلف.",
+      }
+    }
+
+    let user = await getUserByPhone(parsed.data.phone)
+    if (!user) {
+      user = await createUser(parsed.data.phone)
+    }
+
+    const store = await createStore({
+      ownerId: user.id,
+      name: parsed.data.storeName,
+      slug: cleanSlug,
+      phone: parsed.data.phone,
+      whatsapp: parsed.data.whatsapp,
+      deliveryType: "flat",
+      flatFee: 40,
+      freeAbove: 1000,
+      themeColor: "#945B2E",
+      plan: parsed.data.plan ?? "free",
+    })
+
+    await createSessionCookie(user.id, store.id)
+
+    return {
+      ok: true,
+      slug: store.slug,
+      redirectTo: "/merchant/onboarding",
+    }
+  } catch (err) {
+    console.error("[registerMerchantAction] Database error:", err)
     return {
       ok: false,
-      error: "رابط هذا المتجر محجوز بالفعل لمتجر آخر. يرجى اختيار رابط مختلف.",
+      error: "حدث خطأ أثناء إنشاء المتجر. يرجى التحقق من البيانات والمحاولة مجدداً.",
     }
-  }
-
-  let user = await getUserByPhone(parsed.data.phone)
-  if (!user) {
-    user = await createUser(parsed.data.phone)
-  }
-
-  const store = await createStore({
-    ownerId: user.id,
-    name: parsed.data.storeName,
-    slug: cleanSlug,
-    phone: parsed.data.phone,
-    whatsapp: parsed.data.whatsapp,
-    deliveryType: "flat",
-    flatFee: 40,
-    freeAbove: 1000,
-    themeColor: "#E8732A",
-    plan: parsed.data.plan ?? "free",
-  })
-
-  await createSessionCookie(user.id, store.id)
-
-  return {
-    ok: true,
-    slug: store.slug,
-    redirectTo: "/onboarding",
   }
 }
 

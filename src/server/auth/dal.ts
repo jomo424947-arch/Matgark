@@ -28,7 +28,7 @@ export async function getSessionContext(): Promise<SessionContext | null> {
 export async function requireSessionContext(): Promise<SessionContext> {
   const ctx = await getSessionContext()
   if (!ctx) {
-    redirect("/login")
+    redirect("/merchant/login")
   }
   return ctx
 }

@@ -18,6 +18,15 @@ export function checkRateLimit(
   const now = Date.now()
   const cutoff = now - windowMs
 
+  // Periodically prune expired keys to avoid unbounded memory growth
+  if (memoryStore.size > 500) {
+    for (const [k, rec] of memoryStore.entries()) {
+      if (rec.hits.length === 0 || rec.hits[rec.hits.length - 1] <= cutoff) {
+        memoryStore.delete(k)
+      }
+    }
+  }
+
   let record = memoryStore.get(key)
   if (!record) {
     record = { hits: [] }

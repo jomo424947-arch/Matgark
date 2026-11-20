@@ -111,7 +111,7 @@ export function StorefrontProductCard({
   const isEditorial = theme.productCardStyle === "editorial"
   const isSpecGrid = theme.productCardStyle === "spec-grid"
 
-  const WrapperTag = previewMode ? "div" : Link
+  const productHref = `/s/${storeSlug}/products/${product.id}`
 
   return (
     <div
@@ -130,18 +130,27 @@ export function StorefrontProductCard({
           backgroundColor: "var(--sf-secondary)",
         }}
       >
-        <WrapperTag
-          href={previewMode ? "#" : `/s/${storeSlug}/products/${product.id}`}
-          className="block w-full h-full"
-        >
-          <ProductVisual
-            type={product.visualType}
-            palette={product.visualPalette}
-            toneOverride={hoveredTone}
-            label={pick(product.nameAr, product.nameEn)}
-            className="group-hover:scale-[1.03] transition-transform duration-300"
-          />
-        </WrapperTag>
+        {previewMode ? (
+          <div className="block w-full h-full">
+            <ProductVisual
+              type={product.visualType}
+              palette={product.visualPalette}
+              toneOverride={hoveredTone}
+              label={pick(product.nameAr, product.nameEn)}
+              className="group-hover:scale-[1.03] transition-transform duration-300"
+            />
+          </div>
+        ) : (
+          <Link href={productHref} className="block w-full h-full">
+            <ProductVisual
+              type={product.visualType}
+              palette={product.visualPalette}
+              toneOverride={hoveredTone}
+              label={pick(product.nameAr, product.nameEn)}
+              className="group-hover:scale-[1.03] transition-transform duration-300"
+            />
+          </Link>
+        )}
 
         {/* Subtle Top-Start Sale / Out of Stock label */}
         {(discountPct > 0 || isOutOfStock) && (
@@ -207,17 +216,25 @@ export function StorefrontProductCard({
 
       {/* Product Copy */}
       <div className={isEditorial ? "pt-3 space-y-1.5" : "p-3.5 space-y-1.5"}>
-        <WrapperTag
-          href={previewMode ? "#" : `/s/${storeSlug}/products/${product.id}`}
-          className="block"
-        >
-          <h3
-            className="text-sm font-semibold leading-snug line-clamp-1 hover:underline"
-            style={{ color: "var(--sf-text)" }}
-          >
-            {pick(product.nameAr, product.nameEn)}
-          </h3>
-        </WrapperTag>
+        {previewMode ? (
+          <div className="block">
+            <h3
+              className="text-sm font-semibold leading-snug line-clamp-1"
+              style={{ color: "var(--sf-text)" }}
+            >
+              {pick(product.nameAr, product.nameEn)}
+            </h3>
+          </div>
+        ) : (
+          <Link href={productHref} className="block">
+            <h3
+              className="text-sm font-semibold leading-snug line-clamp-1 hover:underline"
+              style={{ color: "var(--sf-text)" }}
+            >
+              {pick(product.nameAr, product.nameEn)}
+            </h3>
+          </Link>
+        )}
 
         {isSpecGrid && product.specs[0] && (
           <p className="text-[11px] line-clamp-1" style={{ color: "var(--sf-muted)" }}>

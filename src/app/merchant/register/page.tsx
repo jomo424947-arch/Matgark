@@ -1,8 +1,8 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, Suspense } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
 import { usePlatformStore } from "@/stores/platformStore"
@@ -11,6 +11,7 @@ import { useI18n } from "@/components/providers/LanguageProvider"
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Logo } from "@/components/ui/Logo"
+import { isReservedSlug } from "@/lib/reserved-slugs"
 import { registerWithEmailAction } from "@/server/actions/auth"
 import type { StoreThemePresetId, TenantStore } from "@/types/saas"
 
@@ -23,13 +24,18 @@ const CATEGORIES: { id: TenantStore["category"]; ar: string; en: string; preset:
   { id: "other", ar: "تجارة عامة", en: "General Commerce", preset: "electronics-pro" },
 ]
 
-export default function MerchantRegisterPage() {
+function MerchantRegisterInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { locale, pick } = useI18n()
   const merchants = usePlatformStore((s) => s.merchants)
   const stores = usePlatformStore((s) => s.stores)
   const registerMerchantAndStore = usePlatformStore((s) => s.registerMerchantAndStore)
   const loginMerchant = useAuthStore((s) => s.loginMerchant)
+
+  const initialSlug = (searchParams.get("slug") || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "")
 
   const [ownerName, setOwnerName] = useState("")
   const [email, setEmail] = useState("")
@@ -37,9 +43,11 @@ export default function MerchantRegisterPage() {
   const [password, setPassword] = useState("")
   const [brandNameEn, setBrandNameEn] = useState("")
   const [brandNameAr, setBrandNameAr] = useState("")
-  const [slug, setSlug] = useState("")
+  const [slug, setSlug] = useState(initialSlug)
   const [category, setCategory] = useState<TenantStore["category"]>("fashion")
   const [error, setError] = useState("")
+
+  const [submitting, setSubmitting] = useState(false)
 
   const ArrowIcon = locale === "ar" ? ArrowLeft : ArrowRight
 
@@ -64,6 +72,7 @@ export default function MerchantRegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting) return
     setError("")
     const cleanEmail = email.trim().toLowerCase()
 
@@ -85,11 +94,14 @@ export default function MerchantRegisterPage() {
       )
       return
     }
-    if (stores.some((s) => s.slug.toLowerCase() === normalizedSlug)) {
+    if (
+      isReservedSlug(normalizedSlug) ||
+      stores.some((s) => s.slug.toLowerCase() === normalizedSlug)
+    ) {
       setError(
         pick(
           "رابط المتجر محجوز بالفعل، جرّب اسماً آخر.",
-          "This store slug is already taken. Please try another."
+          "This store slug is already taken or reserved. Please try another."
         )
       )
       return
@@ -104,11 +116,9 @@ export default function MerchantRegisterPage() {
       return
     }
 
-    const catDef = CATEGORIES.find((c) => c.id === category) ?? CATEGORIES[0]
-
-    // Register with Server Action & create persistent database record & session cookie
+    setSubmitting(true)
     try {
-      const serverRes = await registerWithEmailAction({
+      const serverResult = await registerWithEmailAction({
         name: ownerName.trim(),
         email: cleanEmail,
         password,
@@ -116,41 +126,46 @@ export default function MerchantRegisterPage() {
         slug: normalizedSlug,
         phone: phone.trim() || undefined,
       })
-      if (!serverRes.ok) {
-        setError(serverRes.error || pick("فشل التسجيل، يرجى المحاولة مرة أخرى", "Registration failed"))
+
+      if (!serverResult.ok) {
+        setError(
+          serverResult.error ||
+            pick("تعذر إنشاء المتجر حالياً.", "Could not create your store right now.")
+        )
         return
       }
-    } catch {
-      // Continue to local sync
-    }
 
-    const { merchant, store } = registerMerchantAndStore({
-      ownerName: ownerName.trim(),
-      email: cleanEmail,
-      phone: phone.trim(),
-      password,
-      brandNameAr: brandNameAr.trim() || brandNameEn.trim(),
-      brandNameEn: brandNameEn.trim() || brandNameAr.trim(),
-      slug: normalizedSlug,
-      category,
-      presetId: catDef.preset,
-    })
+      const catDef = CATEGORIES.find((c) => c.id === category) ?? CATEGORIES[0]
+      const { merchant, store } = registerMerchantAndStore({
+        ownerName: ownerName.trim(),
+        email: cleanEmail,
+        phone: phone.trim(),
+        password,
+        brandNameAr: brandNameAr.trim() || brandNameEn.trim(),
+        brandNameEn: brandNameEn.trim() || brandNameAr.trim(),
+        slug: normalizedSlug,
+        category,
+        presetId: catDef.preset,
+      })
 
-    loginMerchant({
-      merchantId: merchant.id,
-      storeId: store.id,
-      name: merchant.name,
-      email: merchant.email,
-      role: "owner",
-    })
+      loginMerchant({
+        merchantId: merchant.id,
+        storeId: store.id,
+        name: merchant.name,
+        email: merchant.email,
+        role: "owner",
+      })
 
-    toast.success(
-      pick(
-        "تم إنشاء حسابك ومتجرك بنجاح! لنكمل خطوات الإعداد.",
-        "Account and store created! Let's complete your guided setup."
+      toast.success(
+        pick(
+          "تم إنشاء حسابك ومتجرك بنجاح! لنكمل خطوات الإعداد.",
+          "Account and store created! Let's complete your guided setup."
+        )
       )
-    )
-    router.push("/merchant/onboarding")
+      router.push("/merchant/onboarding")
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -166,7 +181,7 @@ export default function MerchantRegisterPage() {
       <main className="flex-1 flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-2xl bg-card border border-border rounded-2xl p-6 sm:p-8">
           <div className="mb-6">
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-2">
+            <p className="text-xs font-semibold text-primary mb-2">
               {pick("انضم إلى متجرك", "Start Your Brand")}
             </p>
             <h1 className="text-2xl font-bold tracking-tight">
@@ -183,10 +198,11 @@ export default function MerchantRegisterPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label htmlFor="reg-owner-name" className="block text-sm font-medium mb-1.5">
                   {pick("الاسم الكامل", "Full Name")}
                 </label>
                 <input
+                  id="reg-owner-name"
                   type="text"
                   required
                   value={ownerName}
@@ -196,10 +212,11 @@ export default function MerchantRegisterPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label htmlFor="reg-phone" className="block text-sm font-medium mb-1.5">
                   {pick("رقم الهاتف / واتساب", "Phone / WhatsApp")}
                 </label>
                 <input
+                  id="reg-phone"
                   type="tel"
                   required
                   value={phone}
@@ -212,10 +229,11 @@ export default function MerchantRegisterPage() {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label htmlFor="reg-email" className="block text-sm font-medium mb-1.5">
                   {pick("البريد الإلكتروني", "Business Email")}
                 </label>
                 <input
+                  id="reg-email"
                   type="email"
                   required
                   value={email}
@@ -225,10 +243,11 @@ export default function MerchantRegisterPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label htmlFor="reg-password" className="block text-sm font-medium mb-1.5">
                   {pick("كلمة المرور", "Password")}
                 </label>
                 <input
+                  id="reg-password"
                   type="password"
                   required
                   minLength={6}
@@ -242,10 +261,11 @@ export default function MerchantRegisterPage() {
 
             <div className="pt-2 border-t border-border/70 grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label htmlFor="reg-brand-en" className="block text-sm font-medium mb-1.5">
                   {pick("اسم العلامة التجارية (إنجليزي)", "Brand Name (English)")}
                 </label>
                 <input
+                  id="reg-brand-en"
                   type="text"
                   required
                   value={brandNameEn}
@@ -255,10 +275,11 @@ export default function MerchantRegisterPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label htmlFor="reg-brand-ar" className="block text-sm font-medium mb-1.5">
                   {pick("اسم العلامة التجارية (عربي)", "Brand Name (Arabic)")}
                 </label>
                 <input
+                  id="reg-brand-ar"
                   type="text"
                   value={brandNameAr}
                   onChange={(e) => setBrandNameAr(e.target.value)}
@@ -270,7 +291,7 @@ export default function MerchantRegisterPage() {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label htmlFor="reg-slug" className="block text-sm font-medium mb-1.5">
                   {pick("رابط المتجر الفريد", "Store URL Slug")}
                 </label>
                 <div className="flex items-center h-11 rounded-xl border border-border bg-background overflow-hidden dir-ltr">
@@ -278,6 +299,7 @@ export default function MerchantRegisterPage() {
                     /s/
                   </span>
                   <input
+                    id="reg-slug"
                     type="text"
                     required
                     value={slug}
@@ -295,10 +317,11 @@ export default function MerchantRegisterPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label htmlFor="reg-category" className="block text-sm font-medium mb-1.5">
                   {pick("مجال المتجر", "Store Category")}
                 </label>
                 <select
+                  id="reg-category"
                   value={category}
                   onChange={(e) => setCategory(e.target.value as TenantStore["category"])}
                   className="w-full h-11 rounded-xl border border-border bg-background px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
@@ -313,16 +336,24 @@ export default function MerchantRegisterPage() {
             </div>
 
             {error && (
-              <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs font-medium text-rose-700 dark:text-rose-300">
+              <div
+                role="alert"
+                className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs font-medium text-rose-700 dark:text-rose-300"
+              >
                 {error}
               </div>
             )}
 
             <button
               type="submit"
-              className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-95 transition-opacity"
+              disabled={submitting}
+              className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-95 transition-opacity cursor-pointer disabled:opacity-60"
             >
-              <span>{pick("إنشاء المتجر والبدء في الإعداد", "Create Store & Start Onboarding")}</span>
+              <span>
+                {submitting
+                  ? pick("جاري إنشاء المتجر...", "Creating store...")
+                  : pick("إنشاء المتجر والبدء في الإعداد", "Create Store & Start Onboarding")}
+              </span>
               <ArrowIcon className="w-4 h-4" />
             </button>
           </form>
@@ -338,5 +369,19 @@ export default function MerchantRegisterPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function MerchantRegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background flex items-center justify-center text-sm text-muted-foreground">
+          Loading...
+        </div>
+      }
+    >
+      <MerchantRegisterInner />
+    </Suspense>
   )
 }

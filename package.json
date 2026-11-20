@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npx tsx tests/matgarak.test.ts"
+    "test": "npx tsx --test src/lib/commerce/engine.test.ts src/lib/storeLogic.test.ts tests/matgarak.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.3",

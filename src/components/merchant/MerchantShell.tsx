@@ -33,6 +33,7 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { StatusText } from "@/components/common/StatusText"
 import { Logo } from "@/components/ui/Logo"
 import { formatStoreStatusLabel } from "@/lib/i18n/translations"
+import { logoutAction } from "@/server/actions/auth"
 import { cn } from "@/lib/utils"
 
 interface NavItem {
@@ -263,11 +264,12 @@ export function MerchantShell({ children }: { children: React.ReactNode }) {
         </div>
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
+            await logoutAction().catch(() => {})
             logoutMerchant()
             router.push("/merchant/login")
           }}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>{pick("تسجيل الخروج", "Sign Out")}</span>

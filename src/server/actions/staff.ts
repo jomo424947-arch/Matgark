@@ -79,7 +79,7 @@ export async function deleteStaffAction(
   const { store } = await requireSessionContext()
 
   try {
-    const success = await deleteStaffMember(staffId)
+    const success = await deleteStaffMember(store.id, staffId)
     if (!success) {
       return { ok: false, error: "فشل حذف الموظف" }
     }

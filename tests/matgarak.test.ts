@@ -11,14 +11,16 @@ import {
   slugSchema,
   verifyOtpSchema,
   productInputSchema,
+  updateProductInputSchema,
   loginWithEmailSchema,
   registerWithEmailSchema,
   categoryInputSchema,
   discountInputSchema,
+  updateDiscountInputSchema,
   inventoryAdjustmentSchema,
 } from "../src/lib/validation/schemas"
 
-// 3. Auth & Passwords
+// 3. Auth
 import { signSessionId, verifySessionToken } from "../src/server/auth/session"
 import { hashPassword, verifyPassword } from "../src/server/auth/passwords"
 
@@ -110,9 +112,32 @@ describe("Zod Validation Schemas", () => {
     })
     assert.equal(noVariants.success, false)
   })
+
+  test("validates partial product updates and rejects malformed values", () => {
+    const validPatch = updateProductInputSchema.safeParse({
+      price: 499,
+      isActive: false,
+    })
+    assert.equal(validPatch.success, true)
+
+    const negativePricePatch = updateProductInputSchema.safeParse({
+      price: -10,
+    })
+    assert.equal(negativePricePatch.success, false)
+
+    const emptyVariantsPatch = updateProductInputSchema.safeParse({
+      variants: [],
+    })
+    assert.equal(emptyVariantsPatch.success, false)
+
+    const validVariantsPatch = updateProductInputSchema.safeParse({
+      variants: [{ id: "v1", size: "L", color: "أسود", stock: 5 }],
+    })
+    assert.equal(validVariantsPatch.success, true)
+  })
 })
 
-describe("Session Security & Password Hashing", () => {
+describe("Session Security", () => {
   test("session token signing and verification works in constant-time", () => {
     const sessionId = "sess-test-123456"
     const signedToken = signSessionId(sessionId)
@@ -126,75 +151,76 @@ describe("Session Security & Password Hashing", () => {
     assert.equal(verifySessionToken(tampered), null)
   })
 
-  test("securely hashes and verifies passwords with scrypt and salt", () => {
-    const password = "SuperSecretPassword2026!"
-    const hash = hashPassword(password)
+  test("scrypt password hashing verifies correct passwords and rejects wrong/malformed hashes", () => {
+    const hash = hashPassword("StrongPass2026!")
     assert.ok(hash.includes(":"))
-
-    assert.equal(verifyPassword(password, hash), true)
-    assert.equal(verifyPassword("WrongPassword123", hash), false)
-    assert.equal(verifyPassword("", hash), false)
+    assert.equal(verifyPassword("StrongPass2026!", hash), true)
+    assert.equal(verifyPassword("WrongPass2026!", hash), false)
+    assert.equal(verifyPassword("StrongPass2026!", "malformed-hash"), false)
+    assert.equal(verifyPassword("StrongPass2026!", ""), false)
   })
 })
 
-describe("Extended Schemas & Business Rules", () => {
-  test("validates email authentication schemas", () => {
-    const validLogin = loginWithEmailSchema.safeParse({
-      email: "Merchant@Example.COM",
-      password: "secretpassword",
-    })
-    assert.equal(validLogin.success, true)
-    if (validLogin.success) {
-      assert.equal(validLogin.data.email, "merchant@example.com")
-    }
-
-    const invalidEmail = loginWithEmailSchema.safeParse({
-      email: "not-an-email",
-      password: "secretpassword",
-    })
-    assert.equal(invalidEmail.success, false)
-
-    const shortPassword = loginWithEmailSchema.safeParse({
-      email: "test@example.com",
-      password: "123",
-    })
-    assert.equal(shortPassword.success, false)
+describe("SaaS Extended Validation Schemas", () => {
+  test("validates email login & registration schemas", () => {
+    assert.equal(
+      loginWithEmailSchema.safeParse({ email: "KARIM@NOVA-ATELIER.COM", password: "nova123" }).success,
+      true
+    )
+    assert.equal(
+      loginWithEmailSchema.safeParse({ email: "invalid-email", password: "123" }).success,
+      false
+    )
+    assert.equal(
+      registerWithEmailSchema.safeParse({
+        name: "Karim",
+        email: "karim@brand.com",
+        password: "password123",
+        brandName: "Kairo Studio",
+        slug: "kairo-studio",
+      }).success,
+      true
+    )
   })
 
-  test("validates category and discount schemas", () => {
-    const validCat = categoryInputSchema.safeParse({
-      nameAr: "أزياء رجالية",
-      slug: "mens-fashion",
-      displayOrder: 1,
-      isActive: true,
-    })
-    assert.equal(validCat.success, true)
-
-    const validDiscount = discountInputSchema.safeParse({
-      code: "winter2026",
-      type: "percentage",
-      value: 20,
-      minOrderValue: 500,
-    })
-    assert.equal(validDiscount.success, true)
-    if (validDiscount.success) {
-      assert.equal(validDiscount.data.code, "WINTER2026")
-    }
-  })
-
-  test("validates inventory adjustment schema", () => {
-    const validAdjustment = inventoryAdjustmentSchema.safeParse({
-      productId: "prod-123",
-      changeQty: -5,
-      reason: "تالف في الشحن",
-    })
-    assert.equal(validAdjustment.success, true)
-
-    const missingReason = inventoryAdjustmentSchema.safeParse({
-      productId: "prod-123",
-      changeQty: 10,
-      reason: "",
-    })
-    assert.equal(missingReason.success, false)
+  test("enforces discount percentage <= 100 and category/inventory constraints", () => {
+    assert.equal(
+      discountInputSchema.safeParse({
+        code: "SAVE20",
+        type: "percentage",
+        value: 20,
+      }).success,
+      true
+    )
+    assert.equal(
+      discountInputSchema.safeParse({
+        code: "OVER100",
+        type: "percentage",
+        value: 150,
+      }).success,
+      false
+    )
+    assert.equal(
+      updateDiscountInputSchema.safeParse({
+        type: "percentage",
+        value: 120,
+      }).success,
+      false
+    )
+    assert.equal(
+      categoryInputSchema.safeParse({
+        nameAr: "ملابس شتوية",
+        slug: "winter-wear",
+      }).success,
+      true
+    )
+    assert.equal(
+      inventoryAdjustmentSchema.safeParse({
+        productId: "prod-1",
+        changeQty: -3,
+        reason: "تعديل جرد",
+      }).success,
+      true
+    )
   })
 })

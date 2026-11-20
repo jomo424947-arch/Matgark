@@ -1,75 +1,128 @@
+"use client"
+
 import Link from "next/link"
 import { Logo } from "@/components/ui/Logo"
 import { Button } from "@/components/ui/Button"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
-import { Sparkles, ArrowRight, Store, Heart, Zap } from "lucide-react"
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher"
+import { useI18n } from "@/components/providers/LanguageProvider"
+import { ArrowRight, ArrowLeft, Store, Layers, Zap } from "lucide-react"
 
 export default function AboutPage() {
+  const { pick, dir } = useI18n()
+  const BackArrow = dir === "rtl" ? ArrowRight : ArrowLeft
+
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between p-4 sm:p-8 text-right">
-      <header className="max-w-4xl mx-auto w-full flex items-center justify-between pb-6 border-b border-border">
-        <Logo size="md" />
+    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between p-4 sm:p-8 text-start">
+      <header className="max-w-4xl mx-auto w-full flex items-center justify-between gap-4 pb-6 border-b border-border">
+        <Logo size="md" href="/" priority />
         <div className="flex items-center gap-2">
+          <LanguageSwitcher />
           <ThemeToggle />
           <Link href="/">
             <Button variant="ghost" size="sm" className="gap-1.5">
-              <ArrowRight className="w-4 h-4" />
-              <span>الرئيسية</span>
+              <BackArrow className="w-4 h-4" />
+              <span>{pick("الرئيسية", "Home")}</span>
             </Button>
           </Link>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto w-full py-10 space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-            <Sparkles className="w-6 h-6" />
+      <main className="max-w-4xl mx-auto w-full py-12 space-y-8">
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+            {pick("عن متجرك", "About Matgarak")}
+          </p>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
+            {pick(
+              "بنية تجارة إلكترونية عربية للبراندات المستقلة",
+              "Arabic-first commerce infrastructure for independent brands"
+            )}
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
+            {pick(
+              "انطلقت منصة متجرك لتمكين العلامات التجارية وأصحاب المشاريع في مصر والعالم العربي من إطلاق متاجر إلكترونية مستقلة بالكامل بهوية بصرية مميزة ولوحة تشغيل احترافية بدون تعقيد تقني.",
+              "Matgarak empowers independent merchants across Egypt and the MENA region to launch fully branded online storefronts with a complete operations dashboard and zero engineering overhead."
+            )}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="p-6 rounded-2xl bg-card border border-border space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <Store className="w-5 h-5" />
+            </div>
+            <h2 className="font-bold text-base text-foreground">
+              {pick("هوية مستقلة لكل متجر", "Independent Brand Identity")}
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              {pick(
+                "كل متجر يعمل على رابطه الخاص وألوانه وأقسامه وقوالبه دون أي تشتيت لعملائك.",
+                "Every store runs on its own storefront URL, theme palette, typography, and visual layout."
+              )}
+            </p>
           </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-foreground">
-              عن منصة متجرك (Matgarak)
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              من البراندات الصغيرة .. إلى بيتك
+
+          <div className="p-6 rounded-2xl bg-card border border-border space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <Zap className="w-5 h-5" />
+            </div>
+            <h2 className="font-bold text-base text-foreground">
+              {pick("تشغيل يومي منظم", "Structured Daily Operations")}
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              {pick(
+                "إدارة المخزون، الخيارات المتعددة، مناطق الشحن، والطلبات في شاشة واحدة واضحة وسريعة.",
+                "Manage multi-variant stock, shipping zones, promo codes, and orders in one clean workspace."
+              )}
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl bg-card border border-border space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <Layers className="w-5 h-5" />
+            </div>
+            <h2 className="font-bold text-base text-foreground">
+              {pick("بدون عمولة على المبيعات", "Zero Sales Commission")}
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              {pick(
+                "احتفظ بـ 100% من مبيعاتك مع باقات اشتراك واضحة وتكامل محلي يناسب السوق المصري والعربي.",
+                "Keep 100% of your revenue with transparent subscription tiers tailored for regional commerce."
+              )}
             </p>
           </div>
         </div>
 
-        <div className="bg-card p-6 sm:p-8 rounded-3xl border border-border space-y-6 text-sm leading-relaxed text-foreground/90">
-          <p className="text-base text-foreground font-semibold">
-            انطلقت منصة متجرك بهدف تمكين أصحاب المشاريع الصغيرة والمحلات والبراندات الناشئة في مصر والعالم العربي من امتلاك متجر إلكتروني احترافي متكامل خلال 5 دقائق فقط.
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-            <div className="p-4 rounded-2xl bg-muted/30 border border-border space-y-2">
-              <Store className="w-6 h-6 text-primary" />
-              <h3 className="font-bold text-foreground">بدون عمولات</h3>
-              <p className="text-xs text-muted-foreground">
-                بيع كل منتجاتك واحتفظ بـ 100% من أرباحك بدون أي عمولات خفية.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-muted/30 border border-border space-y-2">
-              <Zap className="w-6 h-6 text-amber-500" />
-              <h3 className="font-bold text-foreground">تنظيم فوري</h3>
-              <p className="text-xs text-muted-foreground">
-                ودّع فوضى رسايل الإنستجرام ونوت بوك الأوردرات واستقبل طلباتك جاهزة.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-muted/30 border border-border space-y-2">
-              <Heart className="w-6 h-6 text-rose-500" />
-              <h3 className="font-bold text-foreground">دعم البراندات</h3>
-              <p className="text-xs text-muted-foreground">
-                أدوات مصممة خصيصاً لتناسب احتياجات السوق المصري والعربي.
-              </p>
-            </div>
+        <div className="p-6 sm:p-8 rounded-2xl bg-card border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold text-foreground">
+              {pick("جاهز لإطلاق متجرك؟", "Ready to launch your storefront?")}
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              {pick(
+                "ابدأ مجاناً في دقائق أو استكشف أحد المتاجر الحية على المنصة.",
+                "Create your store in minutes or explore a live storefront built on Matgarak."
+              )}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link href="/merchant/register">
+              <Button size="sm" className="font-semibold">
+                {pick("أنشئ متجرك الآن", "Create Store")}
+              </Button>
+            </Link>
+            <Link href="/s/nova-atelier">
+              <Button variant="outline" size="sm" className="font-semibold">
+                {pick("معاينة متجر حي", "Preview Live Store")}
+              </Button>
+            </Link>
           </div>
         </div>
       </main>
 
-      <footer className="text-center text-xs text-muted-foreground pt-8 border-t border-border">
-        منصة متجرك © 2026 • جميع الحقوق محفوظة
+      <footer className="max-w-4xl mx-auto w-full text-center text-xs text-muted-foreground pt-8 border-t border-border">
+        {pick("منصة متجرك © 2026 · جميع الحقوق محفوظة", "Matgarak © 2026 · All rights reserved")}
       </footer>
     </div>
   )

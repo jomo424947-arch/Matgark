@@ -1,7 +1,7 @@
 "use server"
 
 import { requireSessionContext } from "@/server/auth/dal"
-import { categoryInputSchema } from "@/lib/validation/schemas"
+import { categoryInputSchema, updateCategoryInputSchema } from "@/lib/validation/schemas"
 import {
   getCategoriesByStore,
   createCategory,
@@ -86,8 +86,16 @@ export async function updateCategoryAction(
 ): Promise<{ ok: boolean; error?: string; category?: Category }> {
   const { store } = await requireSessionContext()
 
+  const parsed = updateCategoryInputSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "بيانات تحديث التصنيف غير صحيحة",
+    }
+  }
+
   try {
-    const updated = await updateCategory(categoryId, input)
+    const updated = await updateCategory(store.id, categoryId, parsed.data)
     if (!updated) {
       return { ok: false, error: "التصنيف غير موجود أو فشل التحديث" }
     }
@@ -113,7 +121,7 @@ export async function deleteCategoryAction(
   const { store } = await requireSessionContext()
 
   try {
-    const success = await deleteCategory(categoryId)
+    const success = await deleteCategory(store.id, categoryId)
     if (!success) {
       return { ok: false, error: "فشل حذف التصنيف" }
     }

@@ -1,7 +1,7 @@
 "use server"
 
 import { requireSessionContext } from "@/server/auth/dal"
-import { discountInputSchema } from "@/lib/validation/schemas"
+import { discountInputSchema, updateDiscountInputSchema } from "@/lib/validation/schemas"
 import {
   getDiscountsByStore,
   createDiscount,
@@ -87,15 +87,22 @@ export async function updateDiscountAction(
     minOrderValue: number
     maxDiscount: number
     usageLimit: number
-    usedCount: number
     expiresAt: string
     isActive: boolean
   }>
 ): Promise<{ ok: boolean; error?: string; discount?: Discount }> {
   const { store } = await requireSessionContext()
 
+  const parsed = updateDiscountInputSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "بيانات تحديث كود الخصم غير صحيحة",
+    }
+  }
+
   try {
-    const updated = await updateDiscount(discountId, input)
+    const updated = await updateDiscount(store.id, discountId, parsed.data)
     if (!updated) {
       return { ok: false, error: "كود الخصم غير موجود أو فشل التحديث" }
     }
@@ -121,7 +128,7 @@ export async function deleteDiscountAction(
   const { store } = await requireSessionContext()
 
   try {
-    const success = await deleteDiscount(discountId)
+    const success = await deleteDiscount(store.id, discountId)
     if (!success) {
       return { ok: false, error: "فشل حذف كود الخصم" }
     }

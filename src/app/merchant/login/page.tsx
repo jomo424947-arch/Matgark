@@ -1,8 +1,8 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, Suspense } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Lock, Mail, ArrowRight, ArrowLeft, Sparkles, ShieldCheck } from "lucide-react"
 import { toast } from "sonner"
 import { usePlatformStore } from "@/stores/platformStore"
@@ -11,7 +11,10 @@ import { useI18n } from "@/components/providers/LanguageProvider"
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Logo } from "@/components/ui/Logo"
-import { loginWithEmailAction } from "@/server/actions/auth"
+import {
+  loginWithEmailAction,
+  establishLocalDemoSessionAction,
+} from "@/server/actions/auth"
 
 const DEMO_ACCOUNTS = [
   {
@@ -43,8 +46,9 @@ const DEMO_ACCOUNTS = [
   },
 ]
 
-export default function MerchantLoginPage() {
+function MerchantLoginInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { locale, pick } = useI18n()
   const merchants = usePlatformStore((s) => s.merchants)
   const stores = usePlatformStore((s) => s.stores)
@@ -53,53 +57,105 @@ export default function MerchantLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
   const ArrowIcon = locale === "ar" ? ArrowLeft : ArrowRight
 
   const authenticate = async (targetEmail: string, targetPassword: string) => {
+    if (submitting) return
     setError("")
+    setSubmitting(true)
     const cleanEmail = targetEmail.trim().toLowerCase()
 
-    // 1. Authenticate with real Backend Server Action and establish httpOnly session cookie
     try {
+      const localMerchant = merchants.find(
+        (m) => m.email.toLowerCase() === cleanEmail
+      )
+      if (localMerchant?.status === "suspended") {
+        setError(
+          pick(
+            "تم إيقاف حساب التاجر مؤقتاً. تواصل مع دعم المنصة.",
+            "This merchant account is currently suspended. Contact platform support."
+          )
+        )
+        return
+      }
+
       const serverResult = await loginWithEmailAction({
         email: cleanEmail,
         password: targetPassword,
       })
+
       if (!serverResult.ok) {
-        setError(serverResult.error || pick("البريد الإلكتروني أو كلمة المرور غير صحيحة.", "Invalid credentials."))
-        return
+        // In local dev adapter mode, also allow merchants registered in this browser session
+        // ONLY after strictly verifying their password and establishing the signed HttpOnly cookie.
+        if (
+          serverResult.mode === "local" &&
+          localMerchant &&
+          localMerchant.passwordDemo === targetPassword
+        ) {
+          const localStore =
+            stores.find((s) => s.merchantId === localMerchant.id) ||
+            stores.find((s) => localMerchant.storeIds.includes(s.id))
+          if (localStore) {
+            await establishLocalDemoSessionAction(localMerchant.id, localStore.id)
+          }
+        } else {
+          setError(
+            serverResult.error ||
+              pick(
+                "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+                "Invalid email address or password."
+              )
+          )
+          return
+        }
       }
-    } catch {
-      // Fallback if network or server issue
-    }
 
-    const merchant = merchants.find((m) => m.email.toLowerCase() === cleanEmail)
-    const primaryStore =
-      stores.find((s) => s.merchantId === merchant?.id) ||
-      stores.find((s) => merchant?.storeIds.includes(s.id)) ||
-      stores[0]
+      const primaryStore =
+        stores.find((s) => s.merchantId === localMerchant?.id) ||
+        stores.find((s) => localMerchant?.storeIds.includes(s.id)) ||
+        stores[0]
 
-    loginMerchant({
-      merchantId: merchant?.id || "m-active",
-      storeId: primaryStore?.id || "store-cairo",
-      name: merchant?.name || cleanEmail.split("@")[0],
-      email: cleanEmail,
-      role: "owner",
-    })
+      loginMerchant({
+        merchantId: localMerchant?.id || "m-active",
+        storeId: primaryStore?.id || "store-nova",
+        name: localMerchant?.name || cleanEmail.split("@")[0],
+        email: cleanEmail,
+        role: "owner",
+      })
 
-    toast.success(
-      pick(
-        `أهلاً بك يا ${merchant?.name || cleanEmail.split("@")[0]}`,
-        `Welcome back!`
+      toast.success(
+        pick(
+          `أهلاً بك يا ${localMerchant?.name || cleanEmail.split("@")[0]}`,
+          `Welcome back, ${localMerchant?.name || cleanEmail.split("@")[0]}`
+        )
       )
-    )
-    router.push(primaryStore?.onboardingCompleted ? "/dashboard" : "/dashboard")
+
+      const fromParam = searchParams.get("from")
+      const safeReturnPath =
+        fromParam && fromParam.startsWith("/dashboard") ? fromParam : "/dashboard"
+
+      router.push(
+        primaryStore && !primaryStore.onboardingCompleted
+          ? "/merchant/onboarding"
+          : safeReturnPath
+      )
+    } catch {
+      setError(
+        pick(
+          "حدث خطأ غير متوقع أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.",
+          "An unexpected error occurred while signing in. Please try again."
+        )
+      )
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    authenticate(email, password)
+    void authenticate(email, password)
   }
 
   return (
@@ -184,9 +240,14 @@ export default function MerchantLoginPage() {
 
               <button
                 type="submit"
-                className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-95 transition-opacity"
+                disabled={submitting}
+                className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-95 transition-opacity disabled:opacity-60 cursor-pointer"
               >
-                <span>{pick("تسجيل الدخول", "Sign In")}</span>
+                <span>
+                  {submitting
+                    ? pick("جاري تسجيل الدخول...", "Signing in...")
+                    : pick("تسجيل الدخول", "Sign In")}
+                </span>
                 <ArrowIcon className="w-4 h-4" />
               </button>
             </form>
@@ -225,8 +286,9 @@ export default function MerchantLoginPage() {
                   <button
                     key={demo.email}
                     type="button"
-                    onClick={() => authenticate(demo.email, demo.password)}
-                    className="w-full text-start p-3 rounded-xl border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors flex items-center justify-between gap-3"
+                    disabled={submitting}
+                    onClick={() => void authenticate(demo.email, demo.password)}
+                    className="w-full text-start p-3 rounded-xl border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors flex items-center justify-between gap-3 disabled:opacity-60 cursor-pointer"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span
@@ -268,5 +330,19 @@ export default function MerchantLoginPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function MerchantLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background flex items-center justify-center text-sm text-muted-foreground">
+          Loading...
+        </div>
+      }
+    >
+      <MerchantLoginInner />
+    </Suspense>
   )
 }

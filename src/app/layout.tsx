@@ -31,8 +31,8 @@ export const metadata: Metadata = {
   description:
     "Launch, customize, and manage independent online stores with visual theming, inventory management, order workflows, and bilingual Arabic/English storefronts.",
   icons: {
-    icon: "/assets/aistudio/1C267C07-7500-4591-A387-7508834DCD4F_5711fd30.png",
-    apple: "/assets/aistudio/1C267C07-7500-4591-A387-7508834DCD4F_5711fd30.png",
+    icon: "/images/matgarak-bag-logo.png",
+    apple: "/images/matgarak-bag-logo.png",
   },
   openGraph: {
     title: "Matgarak | Multi-Tenant E-Commerce SaaS Platform",

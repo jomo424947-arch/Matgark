@@ -1,12 +1,19 @@
 import crypto from "node:crypto"
 import { cookies } from "next/headers"
 import { createSession, deleteSession } from "@/server/db/client"
+import { isSupabaseConfigured } from "@/server/db/supabase"
 import type { Session } from "@/types/domain"
 
 const COOKIE_NAME = "matgarak_session"
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 
+let warnedMissingSecret = false
+
 function getSecret(): string {
+  if (!process.env.SESSION_SECRET && process.env.NODE_ENV === "production" && !warnedMissingSecret) {
+    warnedMissingSecret = true
+    console.warn("[Matgarak Security] SESSION_SECRET is not set in production environment.")
+  }
   return (
     process.env.SESSION_SECRET ||
     "matgarak-default-dev-secret-key-replace-in-production-32chars"
@@ -58,7 +65,9 @@ export async function createSessionCookie(
     expiresAt,
   }
 
-  await createSession(session)
+  if (isSupabaseConfigured) {
+    await createSession(session)
+  }
 
   const signedToken = signSessionId(sessionId)
   const cookieStore = await cookies()
@@ -77,10 +86,10 @@ export async function destroySessionCookie(): Promise<void> {
   const cookieStore = await cookies()
   const token = cookieStore.get(COOKIE_NAME)?.value
 
-  if (token) {
+  if (token && isSupabaseConfigured) {
     const sessionId = verifySessionToken(token)
     if (sessionId) {
-      await deleteSession(sessionId)
+      await deleteSession(sessionId).catch(() => {})
     }
   }
 

@@ -261,15 +261,14 @@ export function StorefrontShell({ storeSlug, children }: StorefrontShellProps) {
             <Link
               href={customerSession ? `/s/${store.slug}/account` : `/s/${store.slug}/login`}
               aria-label={pick("حسابي", "Account")}
-              className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-black/5 relative"
+              className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-black/5 transition-colors"
+              style={
+                customerSession
+                  ? { color: "var(--sf-primary)" }
+                  : undefined
+              }
             >
               <User className="w-4 h-4" />
-              {customerSession && (
-                <span
-                  className="w-2 h-2 rounded-full absolute top-1.5 end-1.5"
-                  style={{ backgroundColor: "var(--sf-accent)" }}
-                />
-              )}
             </Link>
 
             <Link
@@ -457,7 +456,11 @@ export function StorefrontShell({ storeSlug, children }: StorefrontShellProps) {
           >
             <div className="flex items-center justify-between border-b pb-3">
               <span className="font-bold">{pick(store.nameAr, store.nameEn)}</span>
-              <button type="button" onClick={() => setMobileMenuOpen(false)}>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label={pick("إغلاق القائمة", "Close menu")}
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -562,6 +565,7 @@ export function StorefrontShell({ storeSlug, children }: StorefrontShellProps) {
                           <button
                             type="button"
                             onClick={() => updateQuantity(storeSlug, item.key, item.quantity - 1)}
+                            aria-label={pick("تقليل الكمية", "Decrease quantity")}
                             className="w-7 h-7 flex items-center justify-center hover:bg-black/5"
                           >
                             <Minus className="w-3 h-3" />
@@ -570,6 +574,7 @@ export function StorefrontShell({ storeSlug, children }: StorefrontShellProps) {
                           <button
                             type="button"
                             onClick={() => updateQuantity(storeSlug, item.key, item.quantity + 1)}
+                            aria-label={pick("زيادة الكمية", "Increase quantity")}
                             className="w-7 h-7 flex items-center justify-center hover:bg-black/5"
                           >
                             <Plus className="w-3 h-3" />
@@ -582,6 +587,7 @@ export function StorefrontShell({ storeSlug, children }: StorefrontShellProps) {
                           <button
                             type="button"
                             onClick={() => removeItem(storeSlug, item.key)}
+                            aria-label={pick("حذف المنتج", "Remove item")}
                             className="text-rose-600 p-1 hover:bg-rose-500/10 rounded"
                           >
                             <Trash2 className="w-3.5 h-3.5" />

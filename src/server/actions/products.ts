@@ -1,7 +1,10 @@
 "use server"
 
 import { requireSessionContext } from "@/server/auth/dal"
-import { productInputSchema } from "@/lib/validation/schemas"
+import {
+  productInputSchema,
+  updateProductInputSchema,
+} from "@/lib/validation/schemas"
 import {
   getProductById,
   createProduct,
@@ -68,26 +71,34 @@ export async function updateProductAction(
 ): Promise<{ ok: boolean; error?: string; product?: Product }> {
   const { store } = await requireSessionContext()
 
+  const parsed = updateProductInputSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "بيانات تحديث المنتج غير صحيحة",
+    }
+  }
+
   const current = await getProductById(productId)
   if (!current || current.storeId !== store.id) {
     return { ok: false, error: "المنتج غير موجود أو ليس لديك صلاحية تعديله" }
   }
 
-  const variants = input.variants
-    ? input.variants.map((v, idx) => ({
+  const variants = parsed.data.variants
+    ? parsed.data.variants.map((v, idx) => ({
         id: v.id || `v-${Date.now()}-${idx}`,
         size: v.size,
         color: v.color,
-        stock: Math.max(0, Number(v.stock)),
+        stock: v.stock,
       }))
     : current.variants
 
   const updated = await updateProduct(productId, {
-    name: input.name ?? current.name,
-    price: input.price !== undefined ? Number(input.price) : current.price,
-    category: input.category ?? current.category,
-    description: input.description ?? current.description,
-    image: input.image ?? current.image,
+    name: parsed.data.name ?? current.name,
+    price: parsed.data.price ?? current.price,
+    category: parsed.data.category ?? current.category,
+    description: parsed.data.description ?? current.description,
+    image: parsed.data.image ?? current.image,
     variants,
   })
 

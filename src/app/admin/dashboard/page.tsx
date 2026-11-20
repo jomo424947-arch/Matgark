@@ -92,7 +92,10 @@ export default function AdminDashboardPage() {
             {pick("نظرة عامة على المنصة", "Platform Operations Overview")}
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            {t.common.demoAdapterNotice}
+            {pick(
+              "متابعة شاملة للتجار والمتاجر والمبيعات والاشتراكات عبر المنصة",
+              "Unified overview of merchants, storefronts, GMV, and active plans across the platform"
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">

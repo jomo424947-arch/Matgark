@@ -129,11 +129,14 @@ ALTER TABLE public.inventory_logs ENABLE ROW LEVEL SECURITY;
 
 -- Idempotent policy creation (no errors if policies exist)
 DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'srv_all_users' AND tablename = 'users') THEN
+        CREATE POLICY "srv_all_users" ON public.users FOR ALL TO service_role USING (true) WITH CHECK (true);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'srv_all_stores' AND tablename = 'stores') THEN
+        CREATE POLICY "srv_all_stores" ON public.stores FOR ALL TO service_role USING (true) WITH CHECK (true);
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'anon_read_categories' AND tablename = 'categories') THEN
         CREATE POLICY "anon_read_categories" ON public.categories FOR SELECT TO anon USING (is_active = true);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'anon_read_discounts' AND tablename = 'discounts') THEN
-        CREATE POLICY "anon_read_discounts" ON public.discounts FOR SELECT TO anon USING (is_active = true);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'srv_all_categories' AND tablename = 'categories') THEN
         CREATE POLICY "srv_all_categories" ON public.categories FOR ALL TO service_role USING (true) WITH CHECK (true);
