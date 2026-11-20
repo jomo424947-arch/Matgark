@@ -27,17 +27,17 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Matgarak | Multi-Tenant E-Commerce SaaS Platform — منصة متجرك",
+  title: "متجرك | منصة إطلاق متاجر وبراندات الملابس — Matgarak Fashion SaaS",
   description:
-    "Launch, customize, and manage independent online stores with visual theming, inventory management, order workflows, and bilingual Arabic/English storefronts.",
+    "أنشئ متجر ملابسك المستقل في دقائق بقوالب مصممة لبراندات الأزياء، إدارة المقاسات والألوان والمخزون، الشحن لجميع المحافظات والدفع عند الاستلام.",
   icons: {
     icon: "/images/matgarak-bag-logo.png",
     apple: "/images/matgarak-bag-logo.png",
   },
   openGraph: {
-    title: "Matgarak | Multi-Tenant E-Commerce SaaS Platform",
+    title: "متجرك | منصة إطلاق متاجر وبراندات الملابس — Matgarak",
     description:
-      "Create, customize, and scale your independent brand storefront in Arabic and English.",
+      "أطلق متجر ملابسك وأزيائك المستقل بالعربية والإنجليزية مع إدارة كاملة للمقاسات والطلبات.",
     type: "website",
   },
 }

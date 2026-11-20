@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { ArrowRight, ArrowLeft, Mail, Check, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import type {
@@ -268,7 +269,7 @@ export function StorefrontHomeRenderer({
                 </div>
 
                 {/* Architectural Hero Showcase */}
-                <div className="lg:col-span-6">
+                <div className={previewMode ? "md:col-span-6" : "lg:col-span-6"}>
                   <div
                     className="relative aspect-[4/3] overflow-hidden border"
                     style={{
@@ -277,7 +278,17 @@ export function StorefrontHomeRenderer({
                       borderColor: "color-mix(in srgb, var(--sf-text) 10%, transparent)",
                     }}
                   >
-                    {heroProduct ? (
+                    {store.category === "fashion" || store.slug === "menz-club" ? (
+                      <Image
+                        src="/images/nova-store-hero.jpg"
+                        alt={pick(store.nameAr, store.nameEn)}
+                        fill
+                        priority={!previewMode}
+                        sizes="(max-width: 1024px) 100vw, 50vw"
+                        referrerPolicy="no-referrer"
+                        className="object-cover"
+                      />
+                    ) : heroProduct ? (
                       <ProductVisual
                         type={heroProduct.visualType}
                         palette={heroProduct.visualPalette}
@@ -290,15 +301,15 @@ export function StorefrontHomeRenderer({
                     )}
                     {heroProduct && (
                       <div
-                        className="absolute bottom-4 start-4 end-4 sm:end-auto sm:min-w-[240px] p-3.5 backdrop-blur-md border"
+                        className="absolute bottom-4 start-4 end-4 sm:end-auto sm:min-w-[240px] p-3.5 backdrop-blur-md border shadow-lg"
                         style={{
-                          backgroundColor: "color-mix(in srgb, var(--sf-surface) 90%, transparent)",
-                          borderColor: "color-mix(in srgb, var(--sf-text) 12%, transparent)",
+                          backgroundColor: "color-mix(in srgb, var(--sf-surface) 92%, transparent)",
+                          borderColor: "color-mix(in srgb, var(--sf-text) 14%, transparent)",
                           borderRadius: "var(--sf-radius)",
                         }}
                       >
-                        <p className="text-[11px] uppercase tracking-wider" style={{ color: "var(--sf-accent)" }}>
-                          {pick("القطعة المميزة", "Featured Piece")}
+                        <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--sf-accent)" }}>
+                          {pick("القطعة المميزة · مقاسات S–XL", "Featured Piece · Sizes S–XL")}
                         </p>
                         <p className="text-sm font-bold truncate mt-0.5">
                           {pick(heroProduct.nameAr, heroProduct.nameEn)}

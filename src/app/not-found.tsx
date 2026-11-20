@@ -40,7 +40,7 @@ export default function NotFound() {
               <span>{pick("العودة للرئيسية", "Back to Home")}</span>
             </Button>
           </Link>
-          <Link href="/s/nova-atelier">
+          <Link href="/s/menz-club">
             <Button variant="outline" size="lg" className="font-semibold gap-2">
               <Store className="w-4 h-4" />
               <span>{pick("تصفح متجر تجريبي", "Explore Demo Store")}</span>

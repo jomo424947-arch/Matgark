@@ -112,7 +112,7 @@ export default function AboutPage() {
                 {pick("أنشئ متجرك الآن", "Create Store")}
               </Button>
             </Link>
-            <Link href="/s/nova-atelier">
+            <Link href="/s/menz-club">
               <Button variant="outline" size="sm" className="font-semibold">
                 {pick("معاينة متجر حي", "Preview Live Store")}
               </Button>

@@ -23,6 +23,7 @@ import { useI18n } from "@/components/providers/LanguageProvider"
 import { STORE_THEME_PRESETS } from "@/lib/themes/presets"
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
+import { LiveStoreUrlCard } from "@/components/merchant/LiveStoreUrlCard"
 import type { CatalogProduct, Locale, StoreThemePresetId, TenantStore } from "@/types/saas"
 
 const ONBOARDING_STAGES = [
@@ -361,9 +362,17 @@ export default function MerchantOnboardingPage() {
         />
       </div>
 
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 space-y-6">
+        {/* Prominent Store URL Banner immediately visible after signup */}
+        <LiveStoreUrlCard
+          slug={slug || activeStore.slug}
+          storeName={pick(nameAr || activeStore.nameAr, nameEn || activeStore.nameEn)}
+          status={activeStore.status}
+          compact
+        />
+
         {/* Stepper pills */}
-        <ol className="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-8">
+        <ol className="grid grid-cols-2 sm:grid-cols-6 gap-2">
           {ONBOARDING_STAGES.map((st) => {
             const done = st.id < stage
             const current = st.id === stage
@@ -511,19 +520,14 @@ export default function MerchantOnboardingPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1.5">
-                    {pick("تصنيف المتجر", "Business Category")}
+                    {pick("تخصص متجر الملابس", "Clothing Store Specialty")}
                   </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value as TenantStore["category"])}
                     className="w-full h-11 rounded-xl border border-border bg-background px-3.5 text-sm"
                   >
-                    <option value="fashion">{pick("الأزياء والملابس", "Fashion & Apparel")}</option>
-                    <option value="cosmetics">{pick("التجميل والعناية", "Beauty & Cosmetics")}</option>
-                    <option value="electronics">{pick("الإلكترونيات والتقنية", "Electronics & Tech")}</option>
-                    <option value="home">{pick("المنزل والديكور", "Home & Living")}</option>
-                    <option value="food">{pick("الأغذية", "Food & Beverage")}</option>
-                    <option value="other">{pick("أخرى", "Other")}</option>
+                    <option value="fashion">{pick("أزياء وملابس (رجالي / نسائي / ستريت وير)", "Fashion & Apparel (Men / Women / Streetwear)")}</option>
                   </select>
                 </div>
               </div>

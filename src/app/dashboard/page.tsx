@@ -31,6 +31,7 @@ import { formatOrderStatusLabel } from "@/lib/i18n/translations"
 import { BarAreaChart } from "@/components/common/Charts"
 import { ProductVisual } from "@/components/common/ProductVisual"
 import { StatusText } from "@/components/common/StatusText"
+import { LiveStoreUrlCard } from "@/components/merchant/LiveStoreUrlCard"
 
 export default function MerchantDashboardOverviewPage() {
   const { locale, pick, formatCurrency } = useI18n()
@@ -140,6 +141,13 @@ export default function MerchantDashboardOverviewPage() {
           </Link>
         </div>
       </div>
+
+      {/* Prominent Live Store URL Banner */}
+      <LiveStoreUrlCard
+        slug={store.slug}
+        storeName={pick(store.nameAr, store.nameEn)}
+        status={store.status}
+      />
 
       {/* Onboarding Banner if incomplete */}
       {!store.onboardingCompleted && (
@@ -310,7 +318,7 @@ export default function MerchantDashboardOverviewPage() {
           </div>
           <BarAreaChart
             data={revenueSeries}
-            accentColor={store.theme.primaryColor === "#111111" ? "#2563EB" : store.theme.primaryColor}
+            accentColor={store.theme.primaryColor === "#111111" ? "#D98E3E" : store.theme.primaryColor}
             formatValue={(v) => formatCurrency(v, currency)}
           />
         </div>

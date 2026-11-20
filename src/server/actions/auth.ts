@@ -8,7 +8,12 @@ import {
   registerWithEmailSchema,
 } from "@/lib/validation/schemas"
 import { createAndSendOtp, verifyOtpCode } from "@/server/auth/otp"
-import { createSessionCookie, destroySessionCookie } from "@/server/auth/session"
+import {
+  createSessionCookie,
+  destroySessionCookie,
+  createAdminSessionCookie,
+  destroyAdminSessionCookie,
+} from "@/server/auth/session"
 import { hashPassword, verifyPassword } from "@/server/auth/passwords"
 import {
   getUserByPhone,
@@ -26,10 +31,17 @@ const DEMO_ACCOUNTS: Record<
   string,
   { password: string; brand: string; slug: string; phone: string; storeId: string }
 > = {
+  "karim@menz-club.com": {
+    password: "menz123",
+    brand: "Men’z Club",
+    slug: "menz-club",
+    phone: "01011112222",
+    storeId: "store-nova",
+  },
   "karim@nova-atelier.com": {
     password: "nova123",
-    brand: "نوفا أتيليه",
-    slug: "nova-atelier",
+    brand: "Men’z Club",
+    slug: "menz-club",
     phone: "01011112222",
     storeId: "store-nova",
   },
@@ -424,4 +436,77 @@ export async function logoutAction(): Promise<{ ok: boolean; redirectTo: string 
     ok: true,
     redirectTo: "/",
   }
+}
+
+export async function adminLoginAction(input: {
+  email: string
+  password: string
+}): Promise<{
+  ok: boolean
+  error?: string
+  admin?: { id: string; name: string; email: string; role: "super_admin" }
+}> {
+  const parsed = loginWithEmailSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "يرجى إدخال البريد الإلكتروني وكلمة المرور بشكل صحيح",
+    }
+  }
+
+  const cleanEmail = parsed.data.email.toLowerCase().trim()
+  const configuredEmail = (process.env.ADMIN_EMAIL || "admin@matgarak.com").toLowerCase().trim()
+  const configuredPassword = process.env.ADMIN_PASSWORD || "admin2026"
+
+  const matchesEnvAdmin =
+    cleanEmail === configuredEmail && parsed.data.password === configuredPassword
+
+  if (matchesEnvAdmin) {
+    await createAdminSessionCookie("admin-1")
+    return {
+      ok: true,
+      admin: {
+        id: "admin-1",
+        name: "Amr El-Sherbiny",
+        email: cleanEmail,
+        role: "super_admin",
+      },
+    }
+  }
+
+  // If Supabase is configured, also support database-backed admin user accounts with passwordHash
+  if (isSupabaseConfigured) {
+    try {
+      const user = await getUserByEmail(cleanEmail)
+      if (
+        user &&
+        user.passwordHash &&
+        verifyPassword(parsed.data.password, user.passwordHash) &&
+        cleanEmail.endsWith("@matgarak.com")
+      ) {
+        await createAdminSessionCookie(user.id)
+        return {
+          ok: true,
+          admin: {
+            id: user.id,
+            name: user.name || "Platform Admin",
+            email: cleanEmail,
+            role: "super_admin",
+          },
+        }
+      }
+    } catch (err) {
+      console.error("[adminLoginAction] Supabase lookup failed:", err)
+    }
+  }
+
+  return {
+    ok: false,
+    error: "بيانات دخول المشرف العام غير صحيحة أو الحساب غير مصرح له.",
+  }
+}
+
+export async function adminLogoutAction(): Promise<{ ok: boolean }> {
+  await destroyAdminSessionCookie()
+  return { ok: true }
 }

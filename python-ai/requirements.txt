@@ -1,0 +1,5 @@
+# Matgarak Python AI Copilot uses Python 3.11+ standard library only (zero required pip packages).
+# Optional packages if you choose to extend server.py with FastAPI / official Groq SDK:
+# groq>=0.11.0
+# fastapi>=0.115.0
+# uvicorn>=0.32.0

@@ -24,6 +24,7 @@ import {
   Store,
   ChevronDown,
   Sparkles,
+  Bot,
 } from "lucide-react"
 import { useAuthStore } from "@/stores/authStore"
 import { usePlatformStore } from "@/stores/platformStore"
@@ -32,6 +33,7 @@ import { LanguageSwitcher } from "@/components/common/LanguageSwitcher"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { StatusText } from "@/components/common/StatusText"
 import { Logo } from "@/components/ui/Logo"
+import { MerchantAiCopilot } from "@/components/merchant/MerchantAiCopilot"
 import { formatStoreStatusLabel } from "@/lib/i18n/translations"
 import { logoutAction } from "@/server/actions/auth"
 import { cn } from "@/lib/utils"
@@ -46,6 +48,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", labelAr: "نظرة عامة", labelEn: "Overview", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/assistant", labelAr: "المساعد الذكي (AI)", labelEn: "AI Copilot", icon: Bot },
   { href: "/dashboard/orders", labelAr: "الطلبات", labelEn: "Orders", icon: ShoppingBag },
   { href: "/dashboard/products", labelAr: "المنتجات", labelEn: "Products", icon: Package },
   { href: "/dashboard/categories", labelAr: "الأقسام والمجموعات", labelEn: "Categories", icon: FolderTree },
@@ -74,8 +77,10 @@ export function MerchantShell({ children }: { children: React.ReactNode }) {
 
   const [mobileOpen, setMobileOpen] = useState(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
+  const [copilotDrawerOpen, setCopilotDrawerOpen] = useState(false)
 
   const isStoreBuilder = pathname === "/dashboard/store-design"
+  const isAssistantPage = pathname === "/dashboard/assistant"
 
   if (!merchantSession) {
     return (
@@ -97,8 +102,8 @@ export function MerchantShell({ children }: { children: React.ReactNode }) {
             </h1>
             <p className="text-sm text-muted-foreground leading-relaxed">
               {pick(
-                "هذه المساحة مخصصة لأصحاب المتاجر وفريق عملهم. سجّل الدخول أو جرّب متجر NOVA التجريبي فوراً.",
-                "This workspace is reserved for store merchants and staff. Sign in or launch the NOVA Atelier demo store instantly."
+                "هذه المساحة مخصصة لأصحاب المتاجر وفريق عملهم. سجّل الدخول أو جرّب متجر Men’z Club التجريبي فوراً.",
+                "This workspace is reserved for store merchants and staff. Sign in or launch the Men’z Club demo store instantly."
               )}
             </p>
             <div className="flex flex-col gap-2.5 pt-2">
@@ -120,7 +125,7 @@ export function MerchantShell({ children }: { children: React.ReactNode }) {
                 className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-2 hover:opacity-95"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>{pick("دخول فوري كـ تاجر NOVA Atelier", "Quick Sign-In as NOVA Atelier")}</span>
+                <span>{pick("دخول فوري كـ تاجر Men’z Club", "Quick Sign-In as Men’z Club")}</span>
               </button>
               <Link
                 href="/merchant/login"
@@ -351,6 +356,52 @@ export function MerchantShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Floating Quick-Access Merchant AI Copilot Button & Slide-over Drawer */}
+      {!isAssistantPage && (
+        <>
+          <button
+            type="button"
+            onClick={() => setCopilotDrawerOpen(true)}
+            aria-label={pick("فتح المساعد الذكي للمتجر", "Open AI Store Copilot")}
+            className="fixed bottom-5 end-5 z-40 h-12 px-4 rounded-full bg-primary text-primary-foreground shadow-xl hover:opacity-95 transition-opacity inline-flex items-center gap-2 text-xs font-bold cursor-pointer no-print"
+          >
+            <Bot className="w-4 h-4" />
+            <span className="hidden sm:inline">{pick("المساعد الذكي", "AI Copilot")}</span>
+          </button>
+
+          {copilotDrawerOpen && (
+            <div className="fixed inset-0 z-50 flex justify-end no-print">
+              <div
+                className="fixed inset-0 bg-black/50 backdrop-blur-[2px]"
+                onClick={() => setCopilotDrawerOpen(false)}
+              />
+              <div className="relative z-10 w-full max-w-md h-full bg-card border-s border-border shadow-2xl flex flex-col">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/40">
+                  <Link
+                    href="/dashboard/assistant"
+                    onClick={() => setCopilotDrawerOpen(false)}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    {pick("فتح في شاشة كاملة", "Open Full Workspace")}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setCopilotDrawerOpen(false)}
+                    aria-label={pick("إغلاق", "Close")}
+                    className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex-1 min-h-0">
+                  <MerchantAiCopilot mode="drawer" />
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

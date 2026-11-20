@@ -3,48 +3,50 @@
 
 @layer base {
   :root {
-    --background: 36 33% 98%;           /* Warm alabaster canvas matching logo #FCF9F5 */
-    --foreground: 25 47% 16%;           /* Deep espresso ink #3D2616 */
+    color-scheme: light;
+    --background: 36 28% 98%;           /* Crisp warm alabaster #FCFBF8 */
+    --foreground: 24 22% 11%;           /* Deep editorial charcoal ink #221B16 */
     --card: 0 0% 100%;                  /* Pure crisp card surface */
-    --card-foreground: 25 47% 16%;
+    --card-foreground: 24 22% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 25 47% 16%;
-    --primary: 27 52% 38%;              /* Burnished bronze-caramel #945B2E (WCAG AA on white) */
-    --primary-foreground: 36 33% 98%;
-    --secondary: 33 38% 93%;            /* Soft champagne sand #F4ECE2 */
-    --secondary-foreground: 25 45% 18%;
-    --muted: 33 28% 93%;
-    --muted-foreground: 26 16% 42%;
-    --accent: 32 54% 58%;               /* Warm champagne gold #C9965E */
-    --accent-foreground: 25 47% 14%;
+    --popover-foreground: 24 22% 11%;
+    --primary: 27 60% 37%;              /* Burnished bronze-camel #975826 (WCAG AA+ on white) */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 33 26% 94%;            /* Soft limestone sand #F4EFE9 */
+    --secondary-foreground: 24 24% 15%;
+    --muted: 33 20% 94%;
+    --muted-foreground: 24 10% 42%;
+    --accent: 32 58% 52%;               /* Warm champagne gold */
+    --accent-foreground: 24 30% 12%;
     --destructive: 0 74% 48%;
     --destructive-foreground: 0 0% 98%;
-    --border: 32 24% 87%;
-    --input: 32 24% 85%;
-    --ring: 27 52% 38%;
+    --border: 32 18% 87%;
+    --input: 32 18% 84%;
+    --ring: 27 60% 37%;
     --radius: 0.75rem;
   }
 
   .dark {
-    --background: 24 20% 8%;            /* Deep espresso obsidian #191411 */
-    --foreground: 35 30% 95%;           /* Warm parchment white #F6F1EA */
-    --card: 24 18% 12%;                 /* Elevated dark espresso #241D18 */
-    --card-foreground: 35 30% 95%;
-    --popover: 24 18% 12%;
-    --popover-foreground: 35 30% 95%;
-    --primary: 28 56% 44%;              /* Rich luminous bronze-gold #AF6A31 (AA on white) */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 24 15% 17%;
-    --secondary-foreground: 35 30% 95%;
-    --muted: 24 15% 17%;
-    --muted-foreground: 30 14% 66%;
-    --accent: 32 58% 56%;
-    --accent-foreground: 24 35% 10%;
-    --destructive: 0 65% 48%;
+    color-scheme: dark;
+    --background: 240 6% 6%;            /* Deep obsidian charcoal #0E0E10 */
+    --foreground: 36 22% 96%;           /* Crisp alabaster white #F7F5F2 */
+    --card: 240 5% 10%;                 /* Elevated graphite surface #18181B */
+    --card-foreground: 36 22% 96%;
+    --popover: 240 5% 11%;              /* Crisp dark popover #1B1B1E */
+    --popover-foreground: 36 22% 96%;
+    --primary: 31 70% 54%;              /* Luminous atelier bronze-gold #DC913D */
+    --primary-foreground: 240 10% 7%;   /* Deep ink on luminous gold (AAA contrast) */
+    --secondary: 240 5% 15%;            /* Clean elevated slate #242428 */
+    --secondary-foreground: 36 18% 93%;
+    --muted: 240 5% 14%;                /* Subtle dark surface #222226 */
+    --muted-foreground: 30 6% 68%;      /* High-legibility stone gray #B2ADA6 */
+    --accent: 34 74% 62%;               /* Soft golden highlight */
+    --accent-foreground: 240 10% 7%;
+    --destructive: 0 72% 54%;
     --destructive-foreground: 0 0% 98%;
-    --border: 26 14% 21%;
-    --input: 26 14% 22%;
-    --ring: 32 58% 56%;
+    --border: 240 5% 19%;               /* Crisp hairline border #2E2E33 */
+    --input: 240 5% 22%;
+    --ring: 31 70% 54%;
   }
 }
 

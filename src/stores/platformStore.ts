@@ -1134,7 +1134,7 @@ export const usePlatformStore = create<PlatformState>()(
       },
     }),
     {
-      name: "matgarak-saas-platform-v2",
+      name: "matgarak-saas-platform-v3",
     }
   )
 )

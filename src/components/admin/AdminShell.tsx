@@ -8,6 +8,7 @@ import { useI18n } from "@/components/providers/LanguageProvider"
 import { LanguageSwitcher } from "@/components/common/LanguageSwitcher"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Logo } from "@/components/ui/Logo"
+import { adminLogoutAction } from "@/server/actions/auth"
 import {
   LayoutDashboard,
   Users,
@@ -85,15 +86,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const currentNav =
     navItems.find((n) => pathname.startsWith(n.href)) ?? navItems[0]
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await adminLogoutAction().catch(() => {})
     logoutAdmin()
     router.push("/admin/login")
   }
 
   return (
     <div className="min-h-screen bg-background text-foreground flex">
-      {/* Executive Espresso Sidebar */}
-      <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-[#17120F] text-stone-200 border-e border-stone-800 justify-between">
+      {/* Executive Obsidian Sidebar */}
+      <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-[#121215] text-zinc-200 border-e border-zinc-800 justify-between">
         <div className="p-5 space-y-6">
           <div className="pb-4 border-b border-stone-800 flex items-center gap-3">
             <Logo size="sm" surface="dark" href="/admin/dashboard" />

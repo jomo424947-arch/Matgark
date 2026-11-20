@@ -18,14 +18,14 @@ export interface ThemePresetDefinition {
 export const STORE_THEME_PRESETS: ThemePresetDefinition[] = [
   {
     id: "minimal-fashion",
-    nameAr: "أزياء مينيمال (Minimal Fashion)",
-    nameEn: "Minimal Fashion",
-    categoryAr: "أزياء وملابس",
-    categoryEn: "Fashion & Apparel",
+    nameAr: "أتيليه مينيمال (Minimal Atelier)",
+    nameEn: "Minimal Atelier",
+    categoryAr: "أزياء كلاسيكية ومينيمال",
+    categoryEn: "Tailored & Minimal Apparel",
     descriptionAr:
-      "خلفية بيضاء نقية، تايبوغرافي أنيق، إبراز كبير للمنتجات وتنقل سلس للعلامات العصرية.",
+      "خلفية بيضاء نقية وتايبوغرافي تحريري يبرز تفاصيل القصّات والخامات لبراندات الملابس الرجالي والنسائي.",
     descriptionEn:
-      "Pure alabaster canvas, refined typography, generous product framing, and editorial restraint.",
+      "Pure alabaster canvas, refined typography, and architectural framing for tailored menswear and womenswear.",
     theme: {
       presetId: "minimal-fashion",
       primaryColor: "#111111",
@@ -44,14 +44,14 @@ export const STORE_THEME_PRESETS: ThemePresetDefinition[] = [
   },
   {
     id: "modern-cosmetics",
-    nameAr: "مستحضرات تجميل عصرية (Modern Cosmetics)",
-    nameEn: "Modern Cosmetics",
-    categoryAr: "عناية وجمال",
-    categoryEn: "Beauty & Skincare",
+    nameAr: "بوتيك ناعم وعبايات (Soft Boutique)",
+    nameEn: "Soft Boutique & Modest",
+    categoryAr: "عبايات، فساتين وأزياء نسائية",
+    categoryEn: "Modest Wear & Dresses",
     descriptionAr:
-      "ألوان محايدة دافئة مع لمسات ناعمة، بطاقات منتجات جذابة، وبانرات حملات تسويقية.",
+      "درجات دافئة وناعمة بلمسة فخامة مثالية لبوتيكات العبايات وملابس المحجبات والأزياء النسائية الراقية.",
     descriptionEn:
-      "Warm neutral stone backdrop, refined rose-espresso accents, soft surfaces, and campaign storytelling.",
+      "Warm sand tones, soft card framing, and graceful spacing tailored for abayas, dresses, and modest fashion.",
     theme: {
       presetId: "modern-cosmetics",
       primaryColor: "#4A2C2A",
@@ -70,19 +70,19 @@ export const STORE_THEME_PRESETS: ThemePresetDefinition[] = [
   },
   {
     id: "electronics-pro",
-    nameAr: "إلكترونيات وتقنية (Precision Electronics)",
-    nameEn: "Precision Electronics",
-    categoryAr: "تقنية وأجهزة",
-    categoryEn: "Electronics & Audio",
+    nameAr: "ستريت وير عصري (Urban Streetwear)",
+    nameEn: "Urban Streetwear",
+    categoryAr: "ستريت وير، هوديز وملابس شبابية",
+    categoryEn: "Streetwear & Capsule Drops",
     descriptionAr:
-      "تخطيط منظم بوضوح عالي، تسلسل قوي للمواصفات الفنية ومقارنة واضحة للأسعار.",
+      "تخطيط جريء بتباين عالٍ وعرض واضح للمقاسات والكميات المحدودة لبراندات الستريت وير والملابس الرياضية.",
     descriptionEn:
-      "Structured technical hierarchy, spec-forward product cards, crisp contrast, and clear pricing.",
+      "High-contrast editorial grid with bold size callouts built for hoodies, denim, and limited clothing drops.",
     theme: {
       presetId: "electronics-pro",
-      primaryColor: "#0F4C81",
-      secondaryColor: "#EEF2F7",
-      accentColor: "#0EA5E9",
+      primaryColor: "#18181B",
+      secondaryColor: "#F1F5F9",
+      accentColor: "#C26D2D",
       backgroundColor: "#F8FAFC",
       surfaceColor: "#FFFFFF",
       textColor: "#0F172A",

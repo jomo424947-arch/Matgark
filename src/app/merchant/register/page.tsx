@@ -2,8 +2,9 @@
 
 import React, { useState, Suspense } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react"
+import { ArrowRight, ArrowLeft, CheckCircle2, Globe, Shirt } from "lucide-react"
 import { toast } from "sonner"
 import { usePlatformStore } from "@/stores/platformStore"
 import { useAuthStore } from "@/stores/authStore"
@@ -13,15 +14,20 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { Logo } from "@/components/ui/Logo"
 import { isReservedSlug } from "@/lib/reserved-slugs"
 import { registerWithEmailAction } from "@/server/actions/auth"
-import type { StoreThemePresetId, TenantStore } from "@/types/saas"
+import type { StoreThemePresetId } from "@/types/saas"
 
-const CATEGORIES: { id: TenantStore["category"]; ar: string; en: string; preset: StoreThemePresetId }[] = [
-  { id: "fashion", ar: "الأزياء والملابس", en: "Fashion & Apparel", preset: "minimal-fashion" },
-  { id: "cosmetics", ar: "التجميل والعناية", en: "Cosmetics & Beauty", preset: "modern-cosmetics" },
-  { id: "electronics", ar: "الإلكترونيات والتقنية", en: "Electronics & Tech", preset: "electronics-pro" },
-  { id: "home", ar: "المنزل والديكور", en: "Home & Living", preset: "minimal-fashion" },
-  { id: "food", ar: "الأغذية والمشروبات", en: "Food & Beverage", preset: "modern-cosmetics" },
-  { id: "other", ar: "تجارة عامة", en: "General Commerce", preset: "electronics-pro" },
+const CLOTHING_NICHES: {
+  id: string
+  ar: string
+  en: string
+  preset: StoreThemePresetId
+}[] = [
+  { id: "menswear", ar: "ملابس رجالي وكلاسيك", en: "Menswear & Tailored", preset: "minimal-fashion" },
+  { id: "womenswear", ar: "أزياء نسائي وفساتين", en: "Womenswear & Dresses", preset: "modern-cosmetics" },
+  { id: "modest", ar: "عبايات وملابس محجبات", en: "Abayas & Modest Wear", preset: "modern-cosmetics" },
+  { id: "streetwear", ar: "ستريت وير وهوديز شبابي", en: "Streetwear & Hoodies", preset: "electronics-pro" },
+  { id: "activewear", ar: "ملابس رياضية", en: "Activewear & Athleisure", preset: "electronics-pro" },
+  { id: "kidswear", ar: "ملابس أطفال", en: "Kids Apparel", preset: "minimal-fashion" },
 ]
 
 function MerchantRegisterInner() {
@@ -44,9 +50,8 @@ function MerchantRegisterInner() {
   const [brandNameEn, setBrandNameEn] = useState("")
   const [brandNameAr, setBrandNameAr] = useState("")
   const [slug, setSlug] = useState(initialSlug)
-  const [category, setCategory] = useState<TenantStore["category"]>("fashion")
+  const [nicheId, setNicheId] = useState<string>("menswear")
   const [error, setError] = useState("")
-
   const [submitting, setSubmitting] = useState(false)
 
   const ArrowIcon = locale === "ar" ? ArrowLeft : ArrowRight
@@ -135,7 +140,7 @@ function MerchantRegisterInner() {
         return
       }
 
-      const catDef = CATEGORIES.find((c) => c.id === category) ?? CATEGORIES[0]
+      const nicheDef = CLOTHING_NICHES.find((c) => c.id === nicheId) ?? CLOTHING_NICHES[0]
       const { merchant, store } = registerMerchantAndStore({
         ownerName: ownerName.trim(),
         email: cleanEmail,
@@ -144,8 +149,8 @@ function MerchantRegisterInner() {
         brandNameAr: brandNameAr.trim() || brandNameEn.trim(),
         brandNameEn: brandNameEn.trim() || brandNameAr.trim(),
         slug: normalizedSlug,
-        category,
-        presetId: catDef.preset,
+        category: "fashion",
+        presetId: nicheDef.preset,
       })
 
       loginMerchant({
@@ -158,8 +163,8 @@ function MerchantRegisterInner() {
 
       toast.success(
         pick(
-          "تم إنشاء حسابك ومتجرك بنجاح! لنكمل خطوات الإعداد.",
-          "Account and store created! Let's complete your guided setup."
+          `تم إنشاء متجرك بنجاح! رابطك المباشر: /s/${store.slug}`,
+          `Store created! Your live link is /s/${store.slug}`
         )
       )
       router.push("/merchant/onboarding")
@@ -169,205 +174,277 @@ function MerchantRegisterInner() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="h-16 border-b border-border/70 px-6 flex items-center justify-between max-w-6xl w-full mx-auto">
-        <Logo size="md" href="/" priority />
-        <div className="flex items-center gap-2">
-          <LanguageSwitcher />
-          <ThemeToggle />
+    <div className="min-h-screen bg-background text-foreground grid lg:grid-cols-12">
+      {/* Editorial Fashion Visual Side */}
+      <aside className="hidden lg:flex lg:col-span-5 relative flex-col justify-between p-10 bg-zinc-950 text-white overflow-hidden">
+        <Image
+          src="/images/fashion-hero-editorial.jpg"
+          alt={pick("إطلاق براند ملابس على متجرك", "Launch your clothing brand on Matgarak")}
+          fill
+          priority
+          sizes="42vw"
+          referrerPolicy="no-referrer"
+          className="object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/35" />
+
+        <div className="relative z-10 flex items-center justify-between">
+          <Logo size="md" surface="dark" href="/" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-amber-300">
+            {pick("متاجر الملابس والأزياء", "Apparel Brands")}
+          </span>
         </div>
-      </header>
 
-      <main className="flex-1 flex items-center justify-center px-4 py-10">
-        <div className="w-full max-w-2xl bg-card border border-border rounded-2xl p-6 sm:p-8">
-          <div className="mb-6">
-            <p className="text-xs font-semibold text-primary mb-2">
-              {pick("انضم إلى متجرك", "Start Your Brand")}
-            </p>
-            <h1 className="text-2xl font-bold tracking-tight">
-              {pick("أنشئ متجرك الإلكتروني المستقل", "Create your independent online store")}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1.5">
-              {pick(
-                "احجز رابط متجرك واختر مجال عملك لتبدأ رحلة الإعداد في دقائق.",
-                "Reserve your store URL and business category to start your guided onboarding."
-              )}
-            </p>
+        <div className="relative z-10 space-y-5">
+          <div className="inline-flex items-center gap-2 text-xs font-semibold text-amber-300">
+            <Shirt className="w-4 h-4" />
+            <span>{pick("ابدأ مجاناً في دقيقتين", "Launch Free in 2 Minutes")}</span>
           </div>
+          <h2 className="text-3xl font-extrabold leading-tight">
+            {pick(
+              "رابط متجرك المباشر جاهز فور إنشاء الحساب.",
+              "Your independent store link goes live the moment you sign up."
+            )}
+          </h2>
+          <ul className="space-y-2.5 text-sm text-white/80">
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-amber-300 shrink-0" />
+              <span>{pick("إدارة كاملة للمقاسات والألوان لكل منتج", "Per-size & color inventory tracking")}</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-amber-300 shrink-0" />
+              <span>{pick("قوالب أزياء احترافية جاهزة للتخصيص", "Editorial fashion templates ready to customize")}</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-amber-300 shrink-0" />
+              <span>{pick("الدفع عند الاستلام والشحن لكل المحافظات", "Cash on Delivery & governorate shipping")}</span>
+            </li>
+          </ul>
+        </div>
+      </aside>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="reg-owner-name" className="block text-sm font-medium mb-1.5">
-                  {pick("الاسم الكامل", "Full Name")}
-                </label>
-                <input
-                  id="reg-owner-name"
-                  type="text"
-                  required
-                  value={ownerName}
-                  onChange={(e) => setOwnerName(e.target.value)}
-                  placeholder={pick("أحمد سامي", "Alex Morgan")}
-                  className="w-full h-11 rounded-xl border border-border bg-background px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-              <div>
-                <label htmlFor="reg-phone" className="block text-sm font-medium mb-1.5">
-                  {pick("رقم الهاتف / واتساب", "Phone / WhatsApp")}
-                </label>
-                <input
-                  id="reg-phone"
-                  type="tel"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+20 100 000 0000"
-                  className="w-full h-11 rounded-xl border border-border bg-background px-3.5 text-sm dir-ltr text-start focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
+      {/* Registration Form Column */}
+      <div className="lg:col-span-7 flex flex-col min-h-screen">
+        <header className="h-16 border-b border-border/70 px-5 sm:px-8 flex items-center justify-between">
+          <div className="lg:hidden">
+            <Logo size="sm" href="/" />
+          </div>
+          <Link
+            href="/"
+            className="hidden lg:inline-flex items-center text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {pick("العودة للصفحة الرئيسية", "Back to Home")}
+          </Link>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher compact />
+            <ThemeToggle />
+          </div>
+        </header>
+
+        <main className="flex-1 flex items-center justify-center px-5 sm:px-8 py-8">
+          <div className="w-full max-w-xl space-y-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary mb-2">
+                {pick("إنشاء متجر ملابس جديد", "Launch Your Clothing Brand")}
+              </p>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                {pick("أنشئ متجر ملابسك المستقل", "Create your fashion store")}
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                {pick(
+                  "اختر اسم البراند وتخصص الملابس، وسنجهّز لك رابط متجرك فوراً.",
+                  "Choose your brand name and clothing specialty — your live storefront URL is reserved immediately."
+                )}
+              </p>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="reg-email" className="block text-sm font-medium mb-1.5">
-                  {pick("البريد الإلكتروني", "Business Email")}
-                </label>
-                <input
-                  id="reg-email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="founder@mybrand.com"
-                  className="w-full h-11 rounded-xl border border-border bg-background px-3.5 text-sm dir-ltr text-start focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-              <div>
-                <label htmlFor="reg-password" className="block text-sm font-medium mb-1.5">
-                  {pick("كلمة المرور", "Password")}
-                </label>
-                <input
-                  id="reg-password"
-                  type="password"
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full h-11 rounded-xl border border-border bg-background px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-border/70 grid sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="reg-brand-en" className="block text-sm font-medium mb-1.5">
-                  {pick("اسم العلامة التجارية (إنجليزي)", "Brand Name (English)")}
-                </label>
-                <input
-                  id="reg-brand-en"
-                  type="text"
-                  required
-                  value={brandNameEn}
-                  onChange={(e) => handleBrandEnChange(e.target.value)}
-                  placeholder="Kairo Studio"
-                  className="w-full h-11 rounded-xl border border-border bg-background px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-              <div>
-                <label htmlFor="reg-brand-ar" className="block text-sm font-medium mb-1.5">
-                  {pick("اسم العلامة التجارية (عربي)", "Brand Name (Arabic)")}
-                </label>
-                <input
-                  id="reg-brand-ar"
-                  type="text"
-                  value={brandNameAr}
-                  onChange={(e) => setBrandNameAr(e.target.value)}
-                  placeholder="كايرو ستوديو"
-                  className="w-full h-11 rounded-xl border border-border bg-background px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                />
-              </div>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="reg-slug" className="block text-sm font-medium mb-1.5">
-                  {pick("رابط المتجر الفريد", "Store URL Slug")}
-                </label>
-                <div className="flex items-center h-11 rounded-xl border border-border bg-background overflow-hidden dir-ltr">
-                  <span className="px-3 text-xs text-muted-foreground bg-muted/60 h-full flex items-center border-e border-border font-mono">
-                    /s/
-                  </span>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="reg-owner-name" className="block text-sm font-medium mb-1.5">
+                    {pick("الاسم الكامل", "Full Name")}
+                  </label>
                   <input
-                    id="reg-slug"
+                    id="reg-owner-name"
                     type="text"
                     required
-                    value={slug}
-                    onChange={(e) => setSlug(e.target.value)}
-                    placeholder="kairo-studio"
-                    className="flex-1 px-3 text-sm bg-transparent focus:outline-none font-mono"
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                    placeholder={pick("أحمد سامي", "Alex Morgan")}
+                    className="w-full h-11 rounded-xl border border-input bg-card px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
-                {normalizedSlug && (
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1 dir-ltr">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>/s/{normalizedSlug}</span>
-                  </p>
+                <div>
+                  <label htmlFor="reg-phone" className="block text-sm font-medium mb-1.5">
+                    {pick("رقم الهاتف / واتساب", "Phone / WhatsApp")}
+                  </label>
+                  <input
+                    id="reg-phone"
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+20 100 000 0000"
+                    dir="ltr"
+                    className="w-full h-11 rounded-xl border border-input bg-card px-3.5 text-sm text-start focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="reg-email" className="block text-sm font-medium mb-1.5">
+                    {pick("البريد الإلكتروني", "Business Email")}
+                  </label>
+                  <input
+                    id="reg-email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="founder@mybrand.com"
+                    dir="ltr"
+                    className="w-full h-11 rounded-xl border border-input bg-card px-3.5 text-sm text-start focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="reg-password" className="block text-sm font-medium mb-1.5">
+                    {pick("كلمة المرور", "Password")}
+                  </label>
+                  <input
+                    id="reg-password"
+                    type="password"
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    dir="ltr"
+                    className="w-full h-11 rounded-xl border border-input bg-card px-3.5 text-sm text-start focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-border/70 grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="reg-brand-en" className="block text-sm font-medium mb-1.5">
+                    {pick("اسم براند الملابس (إنجليزي)", "Clothing Brand (English)")}
+                  </label>
+                  <input
+                    id="reg-brand-en"
+                    type="text"
+                    required
+                    value={brandNameEn}
+                    onChange={(e) => handleBrandEnChange(e.target.value)}
+                    placeholder="Kairo Wear"
+                    className="w-full h-11 rounded-xl border border-input bg-card px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="reg-brand-ar" className="block text-sm font-medium mb-1.5">
+                    {pick("اسم براند الملابس (عربي)", "Clothing Brand (Arabic)")}
+                  </label>
+                  <input
+                    id="reg-brand-ar"
+                    type="text"
+                    value={brandNameAr}
+                    onChange={(e) => setBrandNameAr(e.target.value)}
+                    placeholder="كايرو وير"
+                    className="w-full h-11 rounded-xl border border-input bg-card px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="reg-slug" className="block text-sm font-medium mb-1.5">
+                    {pick("رابط متجرك الفريد", "Store URL Slug")}
+                  </label>
+                  <div className="flex items-center h-11 rounded-xl border border-input bg-card overflow-hidden dir-ltr">
+                    <span className="px-3 text-xs text-muted-foreground bg-muted/70 h-full flex items-center border-e border-border font-mono">
+                      /s/
+                    </span>
+                    <input
+                      id="reg-slug"
+                      type="text"
+                      required
+                      value={slug}
+                      onChange={(e) => setSlug(e.target.value)}
+                      placeholder="kairo-wear"
+                      className="flex-1 px-3 text-sm bg-transparent focus:outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="reg-category" className="block text-sm font-medium mb-1.5">
+                    {pick("تخصص الملابس", "Apparel Specialty")}
+                  </label>
+                  <select
+                    id="reg-category"
+                    value={nicheId}
+                    onChange={(e) => setNicheId(e.target.value)}
+                    className="w-full h-11 rounded-xl border border-input bg-card px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  >
+                    {CLOTHING_NICHES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {pick(c.ar, c.en)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Instant Live Store URL Preview Box */}
+              <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Globe className="w-4 h-4 text-primary shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-primary">
+                      {pick("رابط متجرك الذي سيظهر لعملائك فور التسجيل:", "Your live store URL right after signup:")}
+                    </p>
+                    <p className="text-xs font-mono font-bold text-foreground truncate dir-ltr text-start">
+                      /s/{normalizedSlug || "your-brand-name"}
+                    </p>
+                  </div>
+                </div>
+                {normalizedSlug.length >= 3 && (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 )}
               </div>
 
-              <div>
-                <label htmlFor="reg-category" className="block text-sm font-medium mb-1.5">
-                  {pick("مجال المتجر", "Store Category")}
-                </label>
-                <select
-                  id="reg-category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as TenantStore["category"])}
-                  className="w-full h-11 rounded-xl border border-border bg-background px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs font-medium text-rose-600 dark:text-rose-300"
                 >
-                  {CATEGORIES.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {pick(c.ar, c.en)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+                  {error}
+                </div>
+              )}
 
-            {error && (
-              <div
-                role="alert"
-                className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs font-medium text-rose-700 dark:text-rose-300"
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
               >
-                {error}
-              </div>
-            )}
+                <span>
+                  {submitting
+                    ? pick("جاري تجهيز متجرك...", "Creating your store...")
+                    : pick("إنشاء متجر الملابس واستلام الرابط", "Create Clothing Store & Get Link")}
+                </span>
+                <ArrowIcon className="w-4 h-4" />
+              </button>
+            </form>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-95 transition-opacity cursor-pointer disabled:opacity-60"
-            >
-              <span>
-                {submitting
-                  ? pick("جاري إنشاء المتجر...", "Creating store...")
-                  : pick("إنشاء المتجر والبدء في الإعداد", "Create Store & Start Onboarding")}
-              </span>
-              <ArrowIcon className="w-4 h-4" />
-            </button>
-          </form>
-
-          <div className="mt-6 pt-5 border-t border-border flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">
-              {pick("لديك حساب بالفعل؟", "Already have a merchant account?")}
-            </span>
-            <Link href="/merchant/login" className="font-semibold text-primary hover:underline">
-              {pick("تسجيل الدخول", "Sign In")}
-            </Link>
+            <div className="pt-2 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+              <span>{pick("لديك حساب تاجر بالفعل؟", "Already have a merchant account?")}</span>
+              <Link href="/merchant/login" className="font-semibold text-primary hover:underline">
+                {pick("تسجيل الدخول", "Sign In")}
+              </Link>
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   )
 }
