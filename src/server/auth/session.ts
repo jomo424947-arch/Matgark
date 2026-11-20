@@ -1,5 +1,5 @@
 import crypto from "node:crypto"
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { createSession, deleteSession } from "@/server/db/client"
 import { isSupabaseConfigured } from "@/server/db/supabase"
 import type { Session } from "@/types/domain"
@@ -8,6 +8,25 @@ const COOKIE_NAME = "matgarak_session"
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 
 let warnedMissingSecret = false
+
+async function shouldUseSecureCookie(): Promise<boolean> {
+  try {
+    const hdrs = await headers()
+    const forwardedProto = hdrs.get("x-forwarded-proto")
+    if (forwardedProto) {
+      return forwardedProto.split(",")[0].trim().toLowerCase() === "https"
+    }
+    const origin = hdrs.get("origin") || hdrs.get("referer") || ""
+    if (origin.startsWith("https://")) return true
+    if (origin.startsWith("http://")) return false
+  } catch {
+    // Outside request context
+  }
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").trim().toLowerCase()
+  if (appUrl.startsWith("https://")) return true
+  if (appUrl.startsWith("http://")) return false
+  return false
+}
 
 function getSecret(): string {
   if (!process.env.SESSION_SECRET && process.env.NODE_ENV === "production" && !warnedMissingSecret) {
@@ -66,14 +85,19 @@ export async function createSessionCookie(
   }
 
   if (isSupabaseConfigured) {
-    await createSession(session)
+    try {
+      await createSession(session)
+    } catch (err) {
+      console.error("[createSessionCookie] Could not persist session row:", err)
+    }
   }
 
+  const secure = await shouldUseSecureCookie()
   const signedToken = signSessionId(sessionId)
   const cookieStore = await cookies()
   cookieStore.set(COOKIE_NAME, signedToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     path: "/",
     maxAge: 30 * 24 * 60 * 60,
@@ -101,10 +125,11 @@ const ADMIN_COOKIE_NAME = "matgarak_admin_session"
 export async function createAdminSessionCookie(adminId: string): Promise<string> {
   const sessionId = `admin-${adminId}-${Date.now()}-${crypto.randomBytes(12).toString("hex")}`
   const signedToken = signSessionId(sessionId)
+  const secure = await shouldUseSecureCookie()
   const cookieStore = await cookies()
   cookieStore.set(ADMIN_COOKIE_NAME, signedToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     path: "/",
     maxAge: 7 * 24 * 60 * 60,

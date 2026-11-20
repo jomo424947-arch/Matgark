@@ -316,7 +316,10 @@ export function PlatformLanding() {
                   <div className="flex flex-col sm:flex-row gap-2.5 p-1.5 rounded-xl border border-border bg-card shadow-sm">
                     <div className="flex-1 flex items-center dir-ltr px-2.5 min-h-[42px]">
                       <span className="text-xs font-mono text-muted-foreground select-none">
-                        matgarak.com/s/
+                        {(process.env.NEXT_PUBLIC_APP_URL || "http://187.126.0.23:3002")
+                          .replace(/^https?:\/\//i, "")
+                          .replace(/\/+$/, "")}
+                        /s/
                       </span>
                       <input
                         type="text"

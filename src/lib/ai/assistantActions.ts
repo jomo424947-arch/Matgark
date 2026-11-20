@@ -102,6 +102,17 @@ export const assistantActionSchema = z.discriminatedUnion("type", [
 
 export type AssistantAction = z.infer<typeof assistantActionSchema>
 
+export const assistantMemorySchema = z.object({
+  key: z.string().min(2).max(110),
+  value: z.string().min(2).max(600),
+  category: z
+    .enum(["preference", "business", "inventory", "pricing", "customer", "general"])
+    .default("general"),
+  importance: z.number().int().min(1).max(5).default(4),
+})
+
+export type AssistantMemoryInput = z.infer<typeof assistantMemorySchema>
+
 export interface ExecutedActionReceipt {
   id: string
   type: AssistantAction["type"]
@@ -109,14 +120,28 @@ export interface ExecutedActionReceipt {
   titleAr: string
   titleEn: string
   href?: string
+  dbPersisted?: boolean
 }
 
 export interface AssistantSseEvent {
-  type: "meta" | "token" | "action" | "error" | "done"
+  type: "meta" | "token" | "action" | "memory" | "conversation" | "error" | "done"
   engine?: "groq" | "python-local"
   model?: string
   delta?: string
   action?: unknown
+  dbPersisted?: boolean
+  dbDetailAr?: string
+  dbDetailEn?: string
+  memory?: {
+    id?: string
+    key: string
+    value: string
+    category: string
+  }
+  conversationId?: string
+  title?: string
+  dbConnected?: boolean
+  memoryBackend?: string
   message?: string
 }
 

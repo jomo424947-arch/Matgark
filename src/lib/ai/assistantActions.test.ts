@@ -3,30 +3,38 @@ import assert from "node:assert/strict"
 import {
   parseAssistantSseEvents,
   assistantActionSchema,
+  assistantMemorySchema,
   executeAssistantAction,
 } from "./assistantActions"
+import { buildPublicStoreUrl } from "../appUrl"
 import type { TenantStore } from "../../types/saas"
 
-test("parseAssistantSseEvents parses multi-frame streams and preserves incomplete remainder", () => {
+test("parseAssistantSseEvents parses multi-frame streams including memory and conversation events", () => {
   const chunk1 =
-    'data: {"type":"meta","engine":"groq","model":"llama-3.3-70b-versatile"}\n\n' +
+    'data: {"type":"conversation","conversationId":"c-1","dbConnected":true}\n\n' +
+    'data: {"type":"meta","engine":"groq","model":"qwen/qwen3.8-27b"}\n\n' +
     'data: {"type":"token","delta":"مرحباً "}\n\n' +
     'data: {"type":"token","del'
 
   const res1 = parseAssistantSseEvents(chunk1)
-  assert.equal(res1.events.length, 2)
-  assert.equal(res1.events[0].engine, "groq")
-  assert.equal(res1.events[1].delta, "مرحباً ")
+  assert.equal(res1.events.length, 3)
+  assert.equal(res1.events[0].conversationId, "c-1")
+  assert.equal(res1.events[1].engine, "groq")
+  assert.equal(res1.events[2].delta, "مرحباً ")
   assert.equal(res1.remainder, 'data: {"type":"token","del')
 
-  const res2 = parseAssistantSseEvents(res1.remainder + 'ta":"بك"}\n\ndata: {"type":"done"}\n\n')
-  assert.equal(res2.events.length, 2)
+  const res2 = parseAssistantSseEvents(
+    res1.remainder +
+      'ta":"بك"}\n\ndata: {"type":"memory","memory":{"key":"vip_rule","value":"Free shipping over 2000 EGP","category":"pricing"}}\n\ndata: {"type":"done"}\n\n'
+  )
+  assert.equal(res2.events.length, 3)
   assert.equal(res2.events[0].delta, "بك")
-  assert.equal(res2.events[1].type, "done")
+  assert.equal(res2.events[1].memory?.key, "vip_rule")
+  assert.equal(res2.events[2].type, "done")
   assert.equal(res2.remainder, "")
 })
 
-test("assistantActionSchema validates safe actions and rejects invalid payloads", () => {
+test("assistantActionSchema and assistantMemorySchema validate safe payloads and reject invalid inputs", () => {
   const validCoupon = assistantActionSchema.safeParse({
     type: "create_discount",
     payload: { code: "VIP20", type: "percentage", value: 20, minOrderValue: 0 },
@@ -38,6 +46,35 @@ test("assistantActionSchema validates safe actions and rejects invalid payloads"
     payload: { primaryColor: "javascript:alert(1)" },
   })
   assert.equal(invalidHex.success, false)
+
+  const validMem = assistantMemorySchema.safeParse({
+    key: "vip_shipping",
+    value: "Free shipping for VIP orders above 2000 EGP",
+    category: "pricing",
+    importance: 5,
+  })
+  assert.equal(validMem.success, true)
+
+  const invalidMem = assistantMemorySchema.safeParse({
+    key: "a",
+    value: "",
+    importance: 99,
+  })
+  assert.equal(invalidMem.success, false)
+})
+
+test("buildPublicStoreUrl respects NEXT_PUBLIC_APP_URL for VPS IP:port deployments", () => {
+  const prev = process.env.NEXT_PUBLIC_APP_URL
+  process.env.NEXT_PUBLIC_APP_URL = "http://187.126.0.23:3002/"
+  try {
+    assert.equal(buildPublicStoreUrl("menz-club"), "http://187.126.0.23:3002/s/menz-club")
+  } finally {
+    if (prev === undefined) {
+      delete process.env.NEXT_PUBLIC_APP_URL
+    } else {
+      process.env.NEXT_PUBLIC_APP_URL = prev
+    }
+  }
 })
 
 test("executeAssistantAction executes create_discount and update_store_status cleanly", () => {

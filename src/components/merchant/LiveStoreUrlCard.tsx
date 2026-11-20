@@ -6,6 +6,8 @@ import { Copy, Check, ExternalLink, Globe, Share2 } from "lucide-react"
 import { toast } from "sonner"
 import { useI18n } from "@/components/providers/LanguageProvider"
 
+import { getPublicAppBaseUrl } from "@/lib/appUrl"
+
 interface LiveStoreUrlCardProps {
   slug: string
   storeName: string
@@ -23,7 +25,7 @@ export function LiveStoreUrlCard({
   const [copied, setCopied] = useState(false)
 
   const origin =
-    typeof window !== "undefined" ? window.location.origin : ""
+    typeof window !== "undefined" ? window.location.origin : getPublicAppBaseUrl()
   const relativePath = `/s/${slug}`
   const fullUrl = origin ? `${origin}${relativePath}` : relativePath
 

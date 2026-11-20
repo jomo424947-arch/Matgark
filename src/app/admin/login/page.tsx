@@ -151,8 +151,11 @@ export default function AdminLoginPage() {
           </form>
 
           <div className="pt-4 border-t border-zinc-800 space-y-2 text-[11px] text-zinc-400">
-            <div className="font-mono text-zinc-300 dir-ltr text-start">
-              {pick("حساب المشرف:", "Admin Operator:")} admin@matgarak.com / admin2026
+            <div className="text-zinc-400">
+              {pick(
+                "تسجيل الدخول محمي ببيانات المشرف العام المعرّفة على الخادم.",
+                "Protected by server-configured Super Admin credentials."
+              )}
             </div>
             <div>
               {pick(
